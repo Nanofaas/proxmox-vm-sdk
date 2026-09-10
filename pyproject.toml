@@ -3,6 +3,8 @@ name = "proxmox-sdk"
 version = "0.2.0"
 description = "Pythonic SDK for Proxmox VE VM management"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     { name = "miciav", email = "5889596+miciav@users.noreply.github.com" }
 ]
@@ -20,7 +22,9 @@ proxmox-eval = "proxmox_sdk.devtools.code_eval:main"
 proxmox-vm-e2e = "proxmox_sdk.e2e:main"
 
 [build-system]
-requires = ["hatchling"]
+# >=1.27 is required for the PEP 639 `license` / `license-files` fields above;
+# older hatchling rejects the SPDX string form.
+requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
