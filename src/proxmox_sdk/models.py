@@ -1,3 +1,10 @@
+"""Typed models for the data the SDK returns.
+
+Each model is a plain dataclass mirroring one Proxmox API payload, and every
+model that has a corresponding endpoint exposes a `from_api` classmethod that
+builds it from the raw response dict.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -7,6 +14,8 @@ from urllib.parse import quote
 
 
 class VmState(Enum):
+    """Power state of a VM as reported by Proxmox."""
+
     RUNNING = "running"
     STOPPED = "stopped"
     PAUSED = "paused"
@@ -14,12 +23,14 @@ class VmState(Enum):
     UNKNOWN = "unknown"
 
     @classmethod
-    def _missing_(cls, value: object) -> "VmState":
+    def _missing_(cls, value: object) -> VmState:
         return cls.UNKNOWN
 
 
 @dataclass
 class VmInfo:
+    """Configuration and current state of a single VM."""
+
     vm_id: int
     name: str
     node: str
@@ -32,7 +43,7 @@ class VmInfo:
     tags: list[str] = field(default_factory=list)
 
     @classmethod
-    def from_api(cls, data: dict[str, Any]) -> "VmInfo":
+    def from_api(cls, data: dict[str, Any]) -> VmInfo:
         """Map from cluster.resources or nodes/{n}/qemu/{id}/status/current response."""
         tags_raw = data.get("tags", "") or ""
         tags = [t.strip() for t in tags_raw.split(";") if t.strip()]
@@ -58,6 +69,8 @@ class VmInfo:
 
 @dataclass
 class VmMetrics:
+    """Runtime CPU, memory, network and disk metrics for a single VM."""
+
     vm_id: int
     cpu_pct: float
     mem_used_bytes: int
@@ -69,7 +82,7 @@ class VmMetrics:
     disk_write_bytes: int
 
     @classmethod
-    def from_api(cls, data: dict[str, Any]) -> "VmMetrics":
+    def from_api(cls, data: dict[str, Any]) -> VmMetrics:
         """Map from cluster.resources VM entry (same shape as app.py vm_metrics)."""
         maxmem = data.get("maxmem") or 0
         mem = data.get("mem") or 0
@@ -90,6 +103,8 @@ class VmMetrics:
 
 @dataclass
 class NodeInfo:
+    """Status and capacity of one node in the cluster."""
+
     name: str
     status: str
     cpu_count: int
@@ -98,7 +113,8 @@ class NodeInfo:
     uptime_seconds: int
 
     @classmethod
-    def from_api(cls, data: dict[str, Any]) -> "NodeInfo":
+    def from_api(cls, data: dict[str, Any]) -> NodeInfo:
+        """Map from a `nodes` cluster resources entry."""
         return cls(
             name=data.get("node", ""),
             status=data.get("status", "unknown"),
@@ -111,6 +127,8 @@ class NodeInfo:
 
 @dataclass
 class SnapshotInfo:
+    """Metadata for one snapshot of a VM."""
+
     name: str
     vm_id: int
     created: int
@@ -118,7 +136,11 @@ class SnapshotInfo:
     parent: str | None = None
 
     @classmethod
-    def from_api(cls, data: dict[str, Any], vm_id: int = 0) -> "SnapshotInfo":
+    def from_api(cls, data: dict[str, Any], vm_id: int = 0) -> SnapshotInfo:
+        """Map from a `snapshots` listing entry.
+
+        The listing omits the owning VM, so callers pass `vm_id` in.
+        """
         return cls(
             name=data.get("name", ""),
             vm_id=vm_id,
@@ -130,6 +152,8 @@ class SnapshotInfo:
 
 @dataclass
 class TemplateInfo:
+    """A VM flagged as a template, with its hardware metadata."""
+
     vm_id: int
     name: str
     node: str
@@ -138,7 +162,8 @@ class TemplateInfo:
     memory_mb: int = 0
 
     @classmethod
-    def from_api(cls, data: dict[str, Any]) -> "TemplateInfo":
+    def from_api(cls, data: dict[str, Any]) -> TemplateInfo:
+        """Map from a cluster.resources entry whose template flag is set."""
         maxmem = data.get("maxmem") or 0
         return cls(
             vm_id=int(data.get("vmid", 0)),
@@ -152,6 +177,8 @@ class TemplateInfo:
 
 @dataclass
 class TaskInfo:
+    """Status of an asynchronous Proxmox task, identified by its UPID."""
+
     upid: str
     node: str
     type: str
@@ -159,7 +186,8 @@ class TaskInfo:
     exit_status: str | None
 
     @classmethod
-    def from_api(cls, data: dict[str, Any]) -> "TaskInfo":
+    def from_api(cls, data: dict[str, Any]) -> TaskInfo:
+        """Map from a `nodes/{node}/tasks/{upid}/status` response."""
         return cls(
             upid=data.get("upid", ""),
             node=data.get("node", ""),
@@ -185,8 +213,7 @@ class VmConfig:
 
 @dataclass
 class CloudInitConfig:
-    """
-    Cloud-init configuration to apply to a VM after cloning.
+    """Cloud-init configuration to apply to a VM after cloning.
 
     Maps to the Proxmox PUT /nodes/{node}/qemu/{vmid}/config endpoint.
     SSH keys are URL-encoded per Proxmox API requirements.

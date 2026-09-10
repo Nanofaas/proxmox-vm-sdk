@@ -13,14 +13,6 @@ dependencies = [
     "requests>=2.31",
 ]
 
-[project.optional-dependencies]
-dev = [
-    "pytest>=8",
-    "pytest-cov",
-    "mypy",
-    "ruff",
-]
-
 [project.scripts]
 proxmox-quality = "proxmox_sdk.devtools.quality:main"
 proxmox-package-report = "proxmox_sdk.devtools.package_report:main"
@@ -34,15 +26,122 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/proxmox_sdk"]
 
+# =============================================================================
+# Development toolchain
+# =============================================================================
+# These MUST live in a dependency group, not in `[project.optional-dependencies]`.
+# A group is installed by a plain `uv sync` / `uv run`; an extra only when
+# explicitly requested with `--extra`. The basedpyright pre-commit hook runs
+# `uv run --frozen basedpyright`, so tooling kept in an extra builds a venv
+# without it and dies with "Failed to spawn: basedpyright". Dev tooling is not a
+# packaging feature and does not belong in the published metadata either.
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+    "pytest-cov>=7.1.0",
+    # Backs the `proxmox-package-report` console script, which calls
+    # grimp.build_graph(). It is a direct dependency, not a leftover: dropping it
+    # makes that script fail at import with ModuleNotFoundError.
+    "grimp>=3.14",
+    # Pinned exactly to match the ruff-pre-commit revision in
+    # .pre-commit-config.yaml. A newer ruff in either place makes the hook and a
+    # local `ruff check` disagree about what a violation is. Bump both together.
+    "ruff==0.16.6",
+    "basedpyright>=1.39.3",
+    "bandit>=1.8",
+    "pre-commit>=4.0",
+]
+
+# =============================================================================
+# Ruff - linting + formatting
+# =============================================================================
+#   uv run ruff check .          # lint
+#   uv run ruff check --fix .    # lint + apply safe fixes
+#   uv run ruff format .         # format
+
 [tool.ruff]
 line-length = 88
+target-version = "py311"
 
-[tool.mypy]
-strict = true
+[tool.ruff.lint]
+select = [
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "F",     # Pyflakes
+    "I",     # isort
+    "N",     # pep8-naming
+    "UP",    # pyupgrade
+    "B",     # flake8-bugbear
+    "C4",    # flake8-comprehensions
+    "SIM",   # flake8-simplify
+    "TID",   # flake8-tidy-imports
+    "RUF",   # Ruff-specific rules
+    "PERF",  # Perflint
+    "PT",    # flake8-pytest-style
+    "RET",   # flake8-return
+    "PTH",   # flake8-use-pathlib
+    "ERA",   # eradicate - commented-out code
+    "D",     # pydocstyle - this is a published SDK with a public API
+]
+ignore = [
+    # Mutually exclusive summary conventions. Summary on the first line (D212)
+    # is the chosen convention, so its counterpart D213 is off; D203 pairs with
+    # D211 the same way.
+    "D203",
+    "D213",
+    # PT018 wants compound asserts split. Several tests here assert a property
+    # of a two-element structure in one go, where splitting hides the intent.
+    "PT018",
+]
 
-[[tool.mypy.overrides]]
-module = ["grimp", "paramiko", "proxmoxer"]
-ignore_missing_imports = true
+[tool.ruff.lint.per-file-ignores]
+# Test functions are documented by their name; requiring a docstring on every
+# one of them is noise, not documentation. Style rules (D2xx/D4xx) still apply.
+"tests/**" = ["D100", "D101", "D102", "D103", "D104", "D105", "D107"]
+
+# testing.py implements an in-memory stand-in for the Proxmox REST API, and its
+# dispatch chain is annotated with the route each branch answers:
+#
+#     # nodes/{node}/qemu/{vmid}/status/start
+#     if len(parts) == 6 and ...:
+#
+# ERA001 reads `nodes/{node}/qemu` as a commented-out expression and flags all
+# 14 of them. They are documentation, not dead code, and rewriting them into
+# prose would lose the mapping to the real API.
+"src/proxmox_sdk/testing.py" = ["ERA001"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["proxmox_sdk"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+
+# =============================================================================
+# basedpyright - type checking
+# =============================================================================
+# The shared type checker across these projects; mypy is no longer used anywhere.
+#
+# reportImplicitOverride is left off because typing.override requires 3.12 and
+# this package supports 3.11 (see the same note in shellcraft and multipass-sdk).
+#
+# reportMissingTypeStubs is off for third-party packages only: paramiko and
+# proxmoxer ship no stubs and none are published for them. Our own code is held
+# to the standard rule set regardless.
+
+[tool.basedpyright]
+include = ["src/proxmox_sdk"]
+typeCheckingMode = "standard"
+reportMissingTypeStubs = false
+reportPrivateUsage = false
+venvPath = "."
+venv = ".venv"
+
+# =============================================================================
+# pytest
+# =============================================================================
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -51,18 +150,54 @@ markers = [
 ]
 addopts = "-m 'not integration'"
 
-[tool.coverage.report]
-fail_under = 75
+# =============================================================================
+# Coverage
+# =============================================================================
+# The gate is 80 and it is expressed once, here. It used to be stated twice and
+# in disagreement: `fail_under = 75` in this file and `--cov-fail-under=80` on
+# the pytest command line in CI, where the flag silently wins. Neither was ever
+# enforced, because the CI job that runs the tests never started.
 
 [tool.coverage.run]
+branch = true
 source = ["src"]
+# e2e.py is the `proxmox-vm-e2e` entry point: a CLI harness whose every path
+# drives a real Proxmox server, so it is exercised by the integration suite
+# rather than by unit tests. Counting it would report 14% for a file that is
+# covered the only way it can be. Same treatment as multipass-sdk's e2e.py.
+omit = ["src/proxmox_sdk/e2e.py"]
 
-[dependency-groups]
-dev = [
-    "grimp>=3.14",
-    "import-linter>=2.11",
-    "mypy>=1.0",
-    "pytest>=9.0.2",
-    "pytest-cov>=7.1.0",
-    "ruff>=0.15.9",
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+fail_under = 80
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    "\\.\\.\\.",
+]
+
+# =============================================================================
+# Bandit - security static analysis
+# =============================================================================
+# This SDK drives a hypervisor over SSH and the REST API, so subprocess and
+# paramiko are its subject matter rather than a smell. B602 (shell=True) stays
+# enabled: no call in this codebase uses it, and that must remain true.
+
+[tool.bandit]
+exclude_dirs = ["tests", ".venv"]
+skips = [
+    # B404 (import subprocess), B603 (subprocess call), B607 (partial path):
+    # unavoidable for a wrapper around external commands.
+    "B404",
+    "B603",
+    "B607",
+    # B601 (paramiko call) fires on every ParamikoSshBackend.run(), which is
+    # the method whose entire contract is "run this command on the host". The
+    # one site where a caller-supplied value was interpolated into a remote
+    # command - read_file's `cat {path}` - was not skipped: it now goes over
+    # SFTP like write_file always did.
+    "B601",
 ]

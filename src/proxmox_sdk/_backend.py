@@ -10,7 +10,6 @@ from proxmox_sdk.exceptions import (
     VmNotFoundError,
 )
 
-
 # ---------------------------------------------------------------------------
 # Protocols
 # ---------------------------------------------------------------------------
@@ -18,8 +17,7 @@ from proxmox_sdk.exceptions import (
 
 @runtime_checkable
 class ProxmoxBackend(Protocol):
-    """
-    Abstracts all Proxmox API calls.
+    """Abstracts all Proxmox API calls.
 
     Paths are flat strings, e.g. "nodes/pve/qemu/100/status/start".
     The backend owns the translation from path + kwargs to the actual
@@ -34,23 +32,19 @@ class ProxmoxBackend(Protocol):
 
     def delete(self, path: str, **params: Any) -> Any: ...
 
-    def wait_for_task(
-        self, node: str, upid: str, timeout: float = 60
-    ) -> None: ...
+    def wait_for_task(self, node: str, upid: str, timeout: float = 60) -> None: ...
 
 
 @runtime_checkable
 class SshBackend(Protocol):
-    """
-    Abstracts SSH command execution on a remote host.
+    """Abstracts SSH command execution on a remote host.
 
     Used by ProxmoxRoutingManager to run commands on the Proxmox host.
     Implementations: ParamikoSshBackend (real), FakeSshBackend (tests).
     """
 
     def run(self, command: str) -> tuple[int, str, str]:
-        """
-        Execute a command on the remote host.
+        """Execute a command on the remote host.
 
         Returns (exit_code, stdout, stderr).
         """
@@ -71,8 +65,7 @@ class SshBackend(Protocol):
 
 
 class ProxmoxerBackend:
-    """
-    Real backend that delegates to the proxmoxer library.
+    """Real backend that delegates to the proxmoxer library.
 
     Translates flat path strings like "nodes/pve/qemu/100/status/start"
     into proxmoxer attribute-chain calls.
@@ -93,9 +86,7 @@ class ProxmoxerBackend:
     def delete(self, path: str, **params: Any) -> Any:
         return self._call("delete", path, **params)
 
-    def wait_for_task(
-        self, node: str, upid: str, timeout: float = 60
-    ) -> None:
+    def wait_for_task(self, node: str, upid: str, timeout: float = 60) -> None:
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             try:
@@ -166,17 +157,27 @@ class ParamikoSshBackend:
             ) from exc
 
         self._client = paramiko.SSHClient()
-        self._client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        connect_kwargs: dict[str, object] = {
-            "hostname": host,
-            "username": user,
-            "port": port,
-        }
-        if ssh_key_path:
-            connect_kwargs["key_filename"] = ssh_key_path
-        if password:
-            connect_kwargs["password"] = password
-        self._client.connect(**connect_kwargs)
+        # The SDK trusts an unknown host key on first connect. This is a
+        # deliberate, if debatable, default: the routing manager is pointed at
+        # a host the caller already administers over SSH, and RejectPolicy
+        # would break every first-time connection. It is NOT free - a
+        # machine-in-the-middle between the SDK and the Proxmox node is
+        # accepted - so verify against known_hosts if that threat is in scope.
+        auto_add_policy = paramiko.AutoAddPolicy()
+        self._client.set_missing_host_key_policy(auto_add_policy)  # nosec B507
+        # paramiko already types key_filename and password as `str | None`, so
+        # the keyword arguments can be passed directly. They used to be built up
+        # in a `dict[str, object]` and splatted, which made every argument
+        # `object` and defeated the type check for this call entirely. The
+        # `or None` keeps the old `if ssh_key_path:` semantics: an empty string
+        # means "not supplied", not "use the empty path".
+        self._client.connect(
+            hostname=host,
+            username=user,
+            port=port,
+            key_filename=ssh_key_path or None,
+            password=password or None,
+        )
 
     def run(self, command: str) -> tuple[int, str, str]:
         _, stdout, stderr = self._client.exec_command(command)
@@ -184,9 +185,13 @@ class ParamikoSshBackend:
         return exit_code, stdout.read().decode(), stderr.read().decode()
 
     def read_file(self, path: str) -> str:
-        _, stdout, _ = self._client.exec_command(f"cat {path}")
-        stdout.channel.recv_exit_status()
-        return str(stdout.read().decode())
+        # Reads go over SFTP to match write_file below. Building a `cat {path}`
+        # shell string instead interpolated the caller's path straight into a
+        # remote command; the path is caller-supplied, so that was an injection
+        # surface for no benefit over asking the SFTP subsystem for the bytes.
+        sftp = self._client.open_sftp()
+        with sftp.file(path, "r") as f:
+            return f.read().decode()
 
     def write_file(self, path: str, content: str) -> None:
         # Write atomically via a tmp file
@@ -200,7 +205,7 @@ class ParamikoSshBackend:
     def close(self) -> None:
         self._client.close()
 
-    def __enter__(self) -> "ParamikoSshBackend":
+    def __enter__(self) -> ParamikoSshBackend:
         return self
 
     def __exit__(self, *_: object) -> None:

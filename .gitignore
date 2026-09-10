@@ -8,3 +8,19 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Coverage reports.
+# pytest/ruff/mypy write a .gitignore of their own inside their cache
+# directories, so those hide themselves; coverage writes loose files at the
+# repo root, which nothing hides.
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# Tool caches, listed explicitly rather than relying on each tool's own
+# self-ignoring .gitignore file.
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.grimp_cache/

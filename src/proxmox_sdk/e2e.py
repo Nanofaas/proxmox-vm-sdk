@@ -24,6 +24,7 @@ import json
 import os
 import sys
 import time
+from pathlib import Path
 
 from .client import ProxmoxClient
 from .exceptions import ProxmoxError
@@ -41,11 +42,16 @@ def _env_or_raise(name: str) -> str:
 
 def _load_ssh_pubkey(key_path: str | None) -> str | None:
     """Return content of <key_path>.pub, or None if the file is absent."""
-    path = key_path or os.path.expanduser("~/.ssh/id_rsa")
-    pub = path + ".pub"
-    if os.path.exists(pub):
-        with open(pub) as f:
-            return f.read().strip()
+    # PTH111 wants Path.expanduser() here, but the two are not equivalent: for
+    # an unresolvable `~user` os.path.expanduser returns the string unchanged
+    # while Path.expanduser() raises RuntimeError, and Path also collapses the
+    # doubled separators that os leaves alone. key_path comes from the
+    # environment, so a typo would turn a clean "no pubkey" into a crash.
+    # Verified on this interpreter rather than assumed.
+    path = os.path.expanduser(key_path or "~/.ssh/id_rsa")  # noqa: PTH111
+    pub = Path(path + ".pub")
+    if pub.exists():
+        return pub.read_text().strip()
     return None
 
 
@@ -54,7 +60,11 @@ def _ssh_exec(host: str, port: int, user: str, key_path: str, command: str) -> s
     import paramiko
 
     client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    # Same trade-off as ParamikoSshBackend: this verification step runs against
+    # a host the caller already administers, and it is the only way to reach
+    # the NAT-forwarded port of a VM that was just created.
+    auto_add_policy = paramiko.AutoAddPolicy()
+    client.set_missing_host_key_policy(auto_add_policy)  # nosec B507
     client.connect(host, port=port, username=user, key_filename=key_path, timeout=15)
     try:
         _, stdout, _ = client.exec_command(command)
@@ -117,7 +127,11 @@ def _verify_ssh(
     idx: int,
     total: int,
 ) -> tuple[int, PortMapping | None]:
-    """Add NAT rule and verify SSH connectivity. Returns (exit_code, mapping_or_None)."""
+    """Add a NAT rule and verify SSH connectivity.
+
+    Returns (exit_code, mapping_or_None); the mapping is returned even when
+    the SSH check fails so the caller can tear the rule down again.
+    """
     label = f"  [{idx}/{total}] {vm.vm_id}"
 
     mapping = PortMapping(
@@ -129,20 +143,31 @@ def _verify_ssh(
         vm_user=ssh_user,
     )
     try:
-        mgr = ProxmoxRoutingManager.from_key(proxmox_host, proxmox_ssh_user, proxmox_key_path)
+        mgr = ProxmoxRoutingManager.from_key(
+            proxmox_host, proxmox_ssh_user, proxmox_key_path
+        )
         assigned = mgr.add_rules([mapping])
         mapping = assigned[0]
     except Exception as exc:
         print(f"{label}: NAT rule failed — {exc}", file=sys.stderr)
         print(
-            f"       Hint: use --proxmox-ssh-key to specify a key authorized on {proxmox_host}",
+            f"       Hint: use --proxmox-ssh-key to specify a key authorized on "
+            f"{proxmox_host}",
             file=sys.stderr,
         )
         return 1, None
 
-    print(f"{label}: SSH {proxmox_host}:{mapping.host_port} -> {vm_ip}:22 ...")
+    host_port = mapping.host_port
+    if host_port is None:
+        # add_rules() fills host_port on every mapping it returns, so reaching
+        # this means that invariant broke. Say so rather than connecting to
+        # port None.
+        print(f"{label}: NAT rule came back without a host port", file=sys.stderr)
+        return 1, mapping
+
+    print(f"{label}: SSH {proxmox_host}:{host_port} -> {vm_ip}:22 ...")
     try:
-        out = _ssh_exec(proxmox_host, mapping.host_port, ssh_user, ssh_key_path, "hostname")
+        out = _ssh_exec(proxmox_host, host_port, ssh_user, ssh_key_path, "hostname")
         print(f"{label}: SSH ok  hostname={out}")
         return 0, mapping
     except Exception as exc:
@@ -151,12 +176,23 @@ def _verify_ssh(
 
 
 def main() -> None:
+    """Run the end-to-end VM lifecycle check from the command line.
+
+    Launches the requested VMs, verifies each one through the guest agent and,
+    when an SSH key is available, through an injected NAT rule, then deletes
+    them again. Exits with status 0 on success and a non-zero status when a
+    launch, verification, or cleanup step fails.
+    """
     parser = argparse.ArgumentParser(
         description="End-to-end Proxmox VM lifecycle test (create, verify, delete)."
     )
     parser.add_argument("--name", default=None, help="VM name prefix.")
-    parser.add_argument("--template-id", type=int, default=None, help="Template VMID to clone.")
-    parser.add_argument("--node", default=None, help="Proxmox node (default: PROXMOX_NODE env).")
+    parser.add_argument(
+        "--template-id", type=int, default=None, help="Template VMID to clone."
+    )
+    parser.add_argument(
+        "--node", default=None, help="Proxmox node (default: PROXMOX_NODE env)."
+    )
     parser.add_argument("--cores", type=int, default=None)
     parser.add_argument("--memory-mb", type=int, default=None)
     parser.add_argument("--disk-gb", type=int, default=None)
@@ -168,23 +204,29 @@ def main() -> None:
     )
     parser.add_argument("--count", type=int, default=1, help="Number of VMs.")
     parser.add_argument(
-        "--configs", default=None,
+        "--configs",
+        default=None,
         help="JSON array of VmConfig objects. Mutually exclusive with --count.",
     )
-    parser.add_argument("--list-templates", action="store_true", help="List templates and exit.")
     parser.add_argument(
-        "--ssh-key", default=None,
-        help="Path to SSH private key (default: ~/.ssh/id_rsa). "
-             "The corresponding .pub is injected into the VM via cloud-init.",
+        "--list-templates", action="store_true", help="List templates and exit."
     )
     parser.add_argument(
-        "--ssh-user", default="ubuntu",
+        "--ssh-key",
+        default=None,
+        help="Path to SSH private key (default: ~/.ssh/id_rsa). "
+        "The corresponding .pub is injected into the VM via cloud-init.",
+    )
+    parser.add_argument(
+        "--ssh-user",
+        default="ubuntu",
         help="SSH user inside the VM (default: ubuntu).",
     )
     parser.add_argument(
-        "--proxmox-ssh-key", default=None,
+        "--proxmox-ssh-key",
+        default=None,
         help="Path to SSH private key authorized on the Proxmox host itself "
-             "(default: same as --ssh-key). Required for NAT rule management via SSH.",
+        "(default: same as --ssh-key). Required for NAT rule management via SSH.",
     )
     args = parser.parse_args()
 
@@ -201,16 +243,21 @@ def main() -> None:
     node = args.node or os.environ.get("PROXMOX_NODE")
 
     # SSH setup — optional; enabled only when the .pub key file is found.
-    ssh_key_path = args.ssh_key or os.path.expanduser("~/.ssh/id_rsa")
+    # Same PTH111 reasoning as in _load_ssh_pubkey: the value is user-supplied.
+    ssh_key_path = args.ssh_key or os.path.expanduser("~/.ssh/id_rsa")  # noqa: PTH111
     proxmox_key_path = args.proxmox_ssh_key or ssh_key_path
     ssh_pubkey = _load_ssh_pubkey(args.ssh_key)
-    ssh_enabled = ssh_pubkey is not None and os.path.exists(ssh_key_path)
+    ssh_enabled = ssh_pubkey is not None and Path(ssh_key_path).exists()
     proxmox_ssh_user = user.split("@")[0]  # "root@pam" -> "root"
 
     client = ProxmoxClient(
-        host=host, user=user, password=password,
-        token_name=token_name, token_value=token_value,
-        node=node, verify_ssl=False,
+        host=host,
+        user=user,
+        password=password,
+        token_name=token_name,
+        token_value=token_value,
+        node=node,
+        verify_ssl=False,
     )
 
     if args.list_templates:
@@ -218,11 +265,16 @@ def main() -> None:
         print(f"{'VMID':>6}  {'Name':<30}  {'Node':<10}  {'Cores':>6}  {'Memory':>10}")
         print("-" * 75)
         for t in templates:
-            print(f"{t.vm_id:>6}  {t.name:<30}  {t.node:<10}  {t.cores:>6}  {t.memory_mb:>8}MB")
+            print(
+                f"{t.vm_id:>6}  {t.name:<30}  {t.node:<10}  "
+                f"{t.cores:>6}  {t.memory_mb:>8}MB"
+            )
         raise SystemExit(0)
 
     ci_config: CloudInitConfig | None = None
-    if ssh_enabled:
+    if ssh_enabled and ssh_pubkey is not None:
+        # ssh_enabled already implies ssh_pubkey is not None; restating it is
+        # what lets the type checker narrow the value to str here.
         ci_config = CloudInitConfig(username=args.ssh_user, ssh_keys=[ssh_pubkey])
 
     if args.configs:
@@ -240,17 +292,25 @@ def main() -> None:
         if args.count == 1:
             configs = [
                 VmConfig(
-                    name=prefix, template_id=args.template_id, node=node,
-                    cores=args.cores, memory_mb=args.memory_mb,
-                    disk_gb=args.disk_gb, cloud_init_config=ci_config,
+                    name=prefix,
+                    template_id=args.template_id,
+                    node=node,
+                    cores=args.cores,
+                    memory_mb=args.memory_mb,
+                    disk_gb=args.disk_gb,
+                    cloud_init_config=ci_config,
                 )
             ]
         else:
             configs = [
                 VmConfig(
-                    name=f"{prefix}-{i}", template_id=args.template_id,
-                    node=node, cores=args.cores, memory_mb=args.memory_mb,
-                    disk_gb=args.disk_gb, cloud_init_config=ci_config,
+                    name=f"{prefix}-{i}",
+                    template_id=args.template_id,
+                    node=node,
+                    cores=args.cores,
+                    memory_mb=args.memory_mb,
+                    disk_gb=args.disk_gb,
+                    cloud_init_config=ci_config,
                 )
                 for i in range(args.count)
             ]
@@ -273,7 +333,10 @@ def main() -> None:
         t0 = time.monotonic()
         vms = client.launch_many(configs, timeout=args.timeout)
         dt = time.monotonic() - t0
-        print(f"       {'launch' if n == 1 else f'all {n} launches'} completed in {dt:.1f}s")
+        print(
+            f"       {'launch' if n == 1 else f'all {n} launches'} "
+            f"completed in {dt:.1f}s"
+        )
 
         print(f"[2/3] Verifying {n} VM(s) ...")
         for i, vm in enumerate(vms, start=1):
@@ -284,12 +347,21 @@ def main() -> None:
 
             if ssh_enabled:
                 if ip is None:
-                    print(f"  [{i}/{n}] {vm.vm_id}: skipping SSH (no IP)", file=sys.stderr)
+                    print(
+                        f"  [{i}/{n}] {vm.vm_id}: skipping SSH (no IP)", file=sys.stderr
+                    )
                     exit_code = 1
                 else:
                     rc2, mapping = _verify_ssh(
-                        vm, ip, host, proxmox_ssh_user,
-                        args.ssh_user, ssh_key_path, proxmox_key_path, i, n,
+                        vm,
+                        ip,
+                        host,
+                        proxmox_ssh_user,
+                        args.ssh_user,
+                        ssh_key_path,
+                        proxmox_key_path,
+                        i,
+                        n,
                     )
                     if mapping is not None:
                         nat_mappings.append(mapping)
@@ -311,7 +383,9 @@ def main() -> None:
         try:
             if nat_mappings:
                 print("       removing NAT rules ...")
-                mgr = ProxmoxRoutingManager.from_key(host, proxmox_ssh_user, proxmox_key_path)
+                mgr = ProxmoxRoutingManager.from_key(
+                    host, proxmox_ssh_user, proxmox_key_path
+                )
                 mgr.remove_rules(nat_mappings)
             for vm in vms:
                 vm.stop()

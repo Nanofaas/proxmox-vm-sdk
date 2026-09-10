@@ -1,5 +1,4 @@
-"""
-Tests for cloud-init drive pre-flight check.
+"""Tests for cloud-init drive pre-flight check.
 
 Proxmox silently ignores cloud-init config if the VM has no cloud-init
 CD-ROM drive attached. These tests verify we detect that and raise early.
@@ -18,7 +17,11 @@ from proxmox_sdk.vm import ProxmoxVM
 def _backend_with_ci_drive() -> FakeBackend:
     b = FakeBackend()
     b.add_vm(
-        9000, node="pve", name="ci-template", status="stopped", template=True,
+        9000,
+        node="pve",
+        name="ci-template",
+        status="stopped",
+        template=True,
         ide2="local-lvm:vm-9000-cloudinit,media=cdrom",
     )
     return b
@@ -31,7 +34,9 @@ def _backend_without_ci_drive() -> FakeBackend:
 
 
 def _client(backend: FakeBackend) -> ProxmoxClient:
-    return ProxmoxClient(host="fake", user="root@pam", password="x", node="pve", backend=backend)
+    return ProxmoxClient(
+        host="fake", user="root@pam", password="x", node="pve", backend=backend
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -56,7 +61,11 @@ def test_has_cloud_init_drive_detects_different_bus_names() -> None:
     for bus in ("ide2", "sata0", "scsi1"):
         backend = FakeBackend()
         backend.add_vm(
-            9000, node="pve", name="t", status="stopped", template=True,
+            9000,
+            node="pve",
+            name="t",
+            status="stopped",
+            template=True,
             **{bus: "local-lvm:vm-9000-cloudinit,media=cdrom"},
         )
         vm = ProxmoxVM(9000, "pve", backend)

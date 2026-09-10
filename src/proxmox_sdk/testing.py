@@ -1,3 +1,11 @@
+"""In-memory test doubles for the SDK's backends.
+
+`FakeBackend` answers the subset of Proxmox REST routes the SDK uses, so unit
+tests can drive a real `ProxmoxClient` without a cluster. `FakeSshBackend`
+does the same for `SshBackend`, simulating a host filesystem and canned
+command output.
+"""
+
 from __future__ import annotations
 
 import time
@@ -5,8 +13,7 @@ from typing import Any
 
 
 class FakeBackend:
-    """
-    In-memory backend for unit testing.
+    """In-memory backend for unit testing.
 
     Seed VMs with add_vm(), then pass to ProxmoxClient(backend=fake).
     All mutation calls are recorded in .calls for assertions.
@@ -14,6 +21,7 @@ class FakeBackend:
     """
 
     def __init__(self) -> None:
+        """Create a fake with no VMs, nodes, snapshots or recorded calls."""
         # vmid -> raw vm dict (Proxmox-shaped)
         self._vms: dict[int, dict[str, Any]] = {}
         # node -> list of raw node dicts
@@ -38,6 +46,13 @@ class FakeBackend:
         status: str = "stopped",
         **kwargs: Any,
     ) -> None:
+        """Seed a VM and create its node if that node is not present yet.
+
+        The VM is stored in the Proxmox-shaped form the backend returns from
+        the resource and config routes. `name` defaults to ``vm-<vmid>``, and
+        any extra keyword argument is stored as a VM field (overriding the
+        generated ones).
+        """
         self._vms[vmid] = {
             "vmid": vmid,
             "node": node,
@@ -67,6 +82,11 @@ class FakeBackend:
         self._snapshots.setdefault(vmid, [])
 
     def add_node(self, name: str, **kwargs: Any) -> None:
+        """Seed an online node with default resource stats.
+
+        Any extra keyword argument is stored as a node field, overriding the
+        generated ones.
+        """
         self._nodes[name] = {
             "node": name,
             "status": "online",
@@ -83,35 +103,53 @@ class FakeBackend:
 
     @property
     def calls(self) -> list[tuple[str, str, dict[str, Any]]]:
+        """Return a copy of the recorded ``(method, path, data)`` calls."""
         return list(self._calls)
 
     def assert_called_with(self, method: str, path: str) -> None:
+        """Assert that a call to `method` on `path` was recorded.
+
+        Raises `AssertionError` listing every recorded call when none matches.
+        """
         for m, p, _ in self._calls:
             if m == method and p == path:
                 return
-        raise AssertionError(
-            f"Expected {method} {path!r} but got: {self._calls}"
-        )
+        raise AssertionError(f"Expected {method} {path!r} but got: {self._calls}")
 
     def get(self, path: str, **params: Any) -> Any:
+        """Record the call and return the fake's response for the GET route.
+
+        Paths the fake does not implement raise `KeyError`.
+        """
         self._calls.append(("GET", path, params))
         return self._handle_get(path, params)
 
     def post(self, path: str, **data: Any) -> Any:
+        """Record the call, mutate the fake's state, and return the task UPID.
+
+        Paths the fake does not implement raise `KeyError`.
+        """
         self._calls.append(("POST", path, data))
         return self._handle_post(path, data)
 
     def put(self, path: str, **data: Any) -> Any:
+        """Record the call and apply the update to the fake's state.
+
+        Paths the fake does not implement raise `KeyError`.
+        """
         self._calls.append(("PUT", path, data))
         return self._handle_put(path, data)
 
     def delete(self, path: str, **params: Any) -> Any:
+        """Record the call and remove the addressed object from the fake.
+
+        Paths the fake does not implement raise `KeyError`.
+        """
         self._calls.append(("DELETE", path, params))
         return self._handle_delete(path, params)
 
-    def wait_for_task(
-        self, node: str, upid: str, timeout: float = 60
-    ) -> None:
+    def wait_for_task(self, node: str, upid: str, timeout: float = 60) -> None:
+        """Return immediately: fake tasks are always already finished."""
         # Tasks resolve instantly in the fake
         pass
 
@@ -275,10 +313,7 @@ class FakeBackend:
                 "snaptime": int(time.time()),
                 "parent": None,
             }
-            existing = [
-                s["name"]
-                for s in self._snapshots.get(vmid, [])
-            ]
+            existing = [s["name"] for s in self._snapshots.get(vmid, [])]
             if existing:
                 snap["parent"] = existing[-1]
             self._snapshots.setdefault(vmid, []).append(snap)
@@ -330,11 +365,7 @@ class FakeBackend:
         parts = path.strip("/").split("/")
 
         # nodes/{node}/qemu/{vmid}
-        if (
-            len(parts) == 4
-            and parts[0] == "nodes"
-            and parts[2] == "qemu"
-        ):
+        if len(parts) == 4 and parts[0] == "nodes" and parts[2] == "qemu":
             vmid = int(parts[3])
             self._require_vm(vmid)
             del self._vms[vmid]
@@ -351,9 +382,7 @@ class FakeBackend:
             vmid = int(parts[3])
             snap_name = parts[5]
             snaps = self._snapshots.get(vmid, [])
-            self._snapshots[vmid] = [
-                s for s in snaps if s["name"] != snap_name
-            ]
+            self._snapshots[vmid] = [s for s in snaps if s["name"] != snap_name]
             return self._make_upid(parts[1])
 
         raise KeyError(f"FakeBackend: unhandled DELETE path: {path!r}")
@@ -376,14 +405,14 @@ class FakeBackend:
 
 
 class FakeSshBackend:
-    """
-    In-memory SSH backend for unit testing.
+    """In-memory SSH backend for unit testing.
 
     Simulates a Proxmox host's filesystem and command output without
     any real network connection.
     """
 
     def __init__(self) -> None:
+        """Create a fake with an empty filesystem and no canned responses."""
         # filename -> content
         self._files: dict[str, str] = {}
         # command prefix -> (exit_code, stdout, stderr)
@@ -401,6 +430,11 @@ class FakeSshBackend:
         self._responses[command_prefix] = (exit_code, stdout, stderr)
 
     def run(self, command: str) -> tuple[int, str, str]:
+        """Record the command and return its canned ``(code, stdout, stderr)``.
+
+        The first seeded prefix the command starts with wins; commands with no
+        matching prefix succeed with no output.
+        """
         self.commands.append(command)
         for prefix, response in self._responses.items():
             if command.startswith(prefix):
@@ -409,9 +443,11 @@ class FakeSshBackend:
         return 0, "", ""
 
     def read_file(self, path: str) -> str:
+        """Return the seeded contents of `path`, or an empty string if unset."""
         return self._files.get(path, "")
 
     def write_file(self, path: str, content: str) -> None:
+        """Store `content` as the contents of `path` on the fake filesystem."""
         self._files[path] = content
 
     def assert_ran(self, substring: str) -> None:
@@ -420,6 +456,5 @@ class FakeSshBackend:
             if substring in cmd:
                 return
         raise AssertionError(
-            f"Expected a command containing {substring!r}. "
-            f"Ran: {self.commands}"
+            f"Expected a command containing {substring!r}. Ran: {self.commands}"
         )

@@ -42,6 +42,7 @@ Replace string manipulation in `parse_proxmox_url` with `urllib.parse.urlparse`:
 ```python
 from urllib.parse import urlparse
 
+
 def parse_proxmox_url(api_url: str) -> tuple[str, int]:
     if "://" not in api_url:
         api_url = f"https://{api_url}"

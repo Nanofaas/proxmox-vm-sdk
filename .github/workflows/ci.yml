@@ -1,31 +1,98 @@
 name: CI
 
 on:
+  pull_request:
   push:
     branches: [master]
-  pull_request:
-    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
-  lint:
+  # ---------------------------------------------------------------------------
+  # Lint, format, types, security.
+  #
+  # Runs the same hooks as local development through pre-commit, so the two can
+  # not drift. The ruff revision is pinned in .pre-commit-config.yaml and in
+  # pyproject.toml; bump both together.
+  #
+  # This replaces a hand-rolled job that ran `uv sync && ruff check && mypy`.
+  # It had been red on every push since 2026-05-17, and because the test job
+  # declared `needs: lint`, the test job never started at all.
+  # ---------------------------------------------------------------------------
+  pre-commit:
+    name: pre-commit (ruff, basedpyright, bandit)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
-      - run: uv sync
-      - run: uv run ruff check src/ tests/
-      - run: uv run mypy src/
 
+      - uses: actions/setup-python@v5
+        with:
+          # ruff's target-version is py311 and basedpyright is pointed at the
+          # 3.11 venv, so linting on the declared floor is the honest choice.
+          python-version: "3.11"
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install pre-commit
+        run: python -m pip install --upgrade pip pre-commit
+
+      - name: Cache pre-commit environments
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
+
+      - name: Run pre-commit
+        run: pre-commit run --all-files --show-diff-on-failure --color=always
+
+  # ---------------------------------------------------------------------------
+  # Tests + coverage gate.
+  #
+  # pyproject.toml sets `addopts = "-m 'not integration'"`, so the tests that
+  # need a real Proxmox server stay out of this job. The coverage threshold
+  # lives in [tool.coverage.report] and is deliberately NOT repeated as a
+  # --cov-fail-under flag here: stating it in two places is how the two came to
+  # disagree before, with the command-line flag silently winning.
+  # ---------------------------------------------------------------------------
   test:
-    needs: lint
+    name: pytest (py${{ matrix.python-version }})
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
+        # 3.11 is the declared floor (requires-python >=3.11).
         python-version: ["3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - run: uv sync
-      - run: uv run pytest --cov=src --cov-report=term --cov-fail-under=80
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install project
+        run: uv sync --frozen
+
+      - name: Run tests with coverage
+        run: uv run --frozen pytest --cov --cov-report=xml --cov-report=term-missing
+
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.python-version }}
+          path: coverage.xml
+          if-no-files-found: ignore

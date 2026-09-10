@@ -13,8 +13,12 @@ pip install proxmox-sdk
 Se lavori dal repository:
 
 ```bash
-uv sync --dev
+uv sync
 ```
+
+Il toolchain di sviluppo (ruff, basedpyright, bandit, pytest, pre-commit) sta in
+`[dependency-groups].dev`, che `uv sync` installa. Un `uv sync --dev` continua a
+funzionare come alias, ma gli strumenti non sono piu un extra pubblicato.
 
 Per le operazioni SSH sul nodo Proxmox serve `paramiko`. Per l'uso reale della REST API servono `proxmoxer` e `requests`.
 
@@ -103,13 +107,15 @@ vm = client.launch(
     ),
 )
 
-vm2 = client.launch(VmConfig(
-    name="node-2",
-    template_id=9000,
-    cores=2,
-    memory_mb=2048,
-    start=False,
-))
+vm2 = client.launch(
+    VmConfig(
+        name="node-2",
+        template_id=9000,
+        cores=2,
+        memory_mb=2048,
+        start=False,
+    )
+)
 ```
 
 `launch_many()` crea piu VM in parallelo e fa rollback se una creazione fallisce.
@@ -209,8 +215,12 @@ mgr = ProxmoxRoutingManager.from_key(
 )
 
 mappings = [
-    PortMapping(vm_id=100, vm_name="node-1", vm_ip="10.0.0.10", vm_port=22, service="SSH"),
-    PortMapping(vm_id=100, vm_name="node-1", vm_ip="10.0.0.10", vm_port=6443, service="k3s"),
+    PortMapping(
+        vm_id=100, vm_name="node-1", vm_ip="10.0.0.10", vm_port=22, service="SSH"
+    ),
+    PortMapping(
+        vm_id=100, vm_name="node-1", vm_ip="10.0.0.10", vm_port=6443, service="k3s"
+    ),
 ]
 
 assigned = mgr.add_rules(mappings)
@@ -267,7 +277,12 @@ uv run proxmox-eval
 I test unitari usano `FakeBackend` e `FakeSshBackend`, quindi non serve un cluster Proxmox reale.
 
 ```python
-from proxmox_sdk import FakeBackend, FakeSshBackend, ProxmoxClient, ProxmoxRoutingManager
+from proxmox_sdk import (
+    FakeBackend,
+    FakeSshBackend,
+    ProxmoxClient,
+    ProxmoxRoutingManager,
+)
 
 fb = FakeBackend()
 fb.add_vm(9000, node="pve", name="ubuntu-template", status="stopped", template=True)
@@ -278,7 +293,9 @@ vm = client.launch("test-vm", template_id=9000, start=False)
 
 ssh = FakeSshBackend()
 ssh.seed_file("/etc/network/interfaces", "auto lo\niface lo inet loopback\n")
-ssh.seed_response("ss -tln", 0, "State  Recv-Q  Send-Q  Local Address:Port\nLISTEN 0 128 *:22\n")
+ssh.seed_response(
+    "ss -tln", 0, "State  Recv-Q  Send-Q  Local Address:Port\nLISTEN 0 128 *:22\n"
+)
 
 mgr = ProxmoxRoutingManager(
     ssh,
@@ -303,4 +320,3 @@ Tutte le eccezioni pubbliche derivano da `ProxmoxError`.
 - `ProxmoxTimeoutError`
 - `SnapshotNotFoundError`
 - `TaskFailedError`
-

@@ -4,8 +4,7 @@ from urllib.parse import urlparse
 
 
 def parse_proxmox_url(api_url: str) -> tuple[str, int]:
-    """
-    Extract host and port from a Proxmox API URL.
+    """Extract host and port from a Proxmox API URL.
 
     Handles forms like:
       https://192.168.1.100:8006/api2/json

@@ -68,10 +68,16 @@ from __future__ import annotations
 import time
 from typing import Any, Protocol, runtime_checkable
 
-from proxmox_sdk.exceptions import ProxmoxAPIError, ProxmoxTimeoutError, TaskFailedError, VmNotFoundError
+from proxmox_sdk.exceptions import (
+    ProxmoxAPIError,
+    ProxmoxTimeoutError,
+    TaskFailedError,
+    VmNotFoundError,
+)
 
 
 # -- REST API backend protocol --------------------------------------------
+
 
 @runtime_checkable
 class ProxmoxBackend(Protocol):
@@ -83,6 +89,7 @@ class ProxmoxBackend(Protocol):
 
 
 # -- Proxmoxer (real REST) backend ---------------------------------------
+
 
 class ProxmoxerBackend:
     def __init__(self, proxmox_api: Any) -> None:
@@ -144,6 +151,7 @@ class ProxmoxerBackend:
 
 
 # -- SSH backend protocol and implementations -----------------------------
+
 
 @runtime_checkable
 class SshBackend(Protocol):
@@ -211,6 +219,7 @@ class ParamikoSshBackend:
 
 # -- Command result -------------------------------------------------------
 
+
 class CommandResult:
     def __init__(
         self,
@@ -253,34 +262,50 @@ class FakeBackend:
         self._calls: list[tuple[str, str, dict[str, Any]]] = []
 
     def add_vm(
-        self, vmid: int, node: str = "pve", name: str | None = None,
-        status: str = "stopped", **kwargs: Any,
+        self,
+        vmid: int,
+        node: str = "pve",
+        name: str | None = None,
+        status: str = "stopped",
+        **kwargs: Any,
     ) -> None:
         self._vms[vmid] = {
-            "vmid": vmid, "node": node,
-            "name": name or f"vm-{vmid}", "status": status,
+            "vmid": vmid,
+            "node": node,
+            "name": name or f"vm-{vmid}",
+            "status": status,
             "cpus": kwargs.get("cpus", 2),
             "maxmem": kwargs.get("maxmem", 2 * 1024 * 1024 * 1024),
             "mem": kwargs.get("mem", 512 * 1024 * 1024),
             "cpu": kwargs.get("cpu", 0.01),
             "uptime": kwargs.get("uptime", 0),
             "template": kwargs.get("template", False),
-            "netin": 0, "netout": 0, "diskread": 0, "diskwrite": 0,
+            "netin": 0,
+            "netout": 0,
+            "diskread": 0,
+            "diskwrite": 0,
             **kwargs,
         }
         if node not in self._nodes:
             self._nodes[node] = {
-                "node": node, "status": "online", "maxcpu": 8,
+                "node": node,
+                "status": "online",
+                "maxcpu": 8,
                 "maxmem": 16 * 1024 * 1024 * 1024,
-                "mem": 4 * 1024 * 1024 * 1024, "uptime": 86400,
+                "mem": 4 * 1024 * 1024 * 1024,
+                "uptime": 86400,
             }
         self._snapshots.setdefault(vmid, [])
 
     def add_node(self, name: str, **kwargs: Any) -> None:
         self._nodes[name] = {
-            "node": name, "status": "online", "maxcpu": 8,
+            "node": name,
+            "status": "online",
+            "maxcpu": 8,
             "maxmem": 16 * 1024 * 1024 * 1024,
-            "mem": 4 * 1024 * 1024 * 1024, "uptime": 86400, **kwargs,
+            "mem": 4 * 1024 * 1024 * 1024,
+            "uptime": 86400,
+            **kwargs,
         }
 
     @property
@@ -330,25 +355,47 @@ class FakeBackend:
             node = parts[1]
             return [v for v in self._vms.values() if v.get("node") == node]
 
-        if len(parts) == 6 and parts[0] == "nodes" and parts[2] == "qemu" and parts[4] == "status" and parts[5] == "current":
+        if (
+            len(parts) == 6
+            and parts[0] == "nodes"
+            and parts[2] == "qemu"
+            and parts[4] == "status"
+            and parts[5] == "current"
+        ):
             vmid = int(parts[3])
             vm = self._vms.get(vmid)
             if vm is None:
                 raise KeyError(f"VM {vmid} not found")
             return vm
 
-        if len(parts) == 5 and parts[0] == "nodes" and parts[2] == "qemu" and parts[4] == "snapshots":
+        if (
+            len(parts) == 5
+            and parts[0] == "nodes"
+            and parts[2] == "qemu"
+            and parts[4] == "snapshots"
+        ):
             vmid = int(parts[3])
             return list(self._snapshots.get(vmid, []))
 
-        if len(parts) == 6 and parts[0] == "nodes" and parts[2] == "qemu" and parts[4] == "agent" and parts[5] == "network-get-interfaces":
+        if (
+            len(parts) == 6
+            and parts[0] == "nodes"
+            and parts[2] == "qemu"
+            and parts[4] == "agent"
+            and parts[5] == "network-get-interfaces"
+        ):
             vmid = int(parts[3])
             vm = self._vms.get(vmid)
             if vm is None:
                 raise KeyError(f"VM {vmid} not found")
             return {"result": []}
 
-        if len(parts) == 5 and parts[0] == "nodes" and parts[2] == "qemu" and parts[4] == "config":
+        if (
+            len(parts) == 5
+            and parts[0] == "nodes"
+            and parts[2] == "qemu"
+            and parts[4] == "config"
+        ):
             vmid = int(parts[3])
             vm = self._vms.get(vmid)
             if vm is None:
@@ -371,27 +418,50 @@ class FakeBackend:
             self.add_vm(vmid, node=node, name=data.get("name", f"vm-{vmid}"))
             return self._make_upid(node)
 
-        if len(parts) == 6 and parts[0] == "nodes" and parts[2] == "qemu" and parts[4] == "status" and parts[5] == "start":
+        if (
+            len(parts) == 6
+            and parts[0] == "nodes"
+            and parts[2] == "qemu"
+            and parts[4] == "status"
+            and parts[5] == "start"
+        ):
             vmid = int(parts[3])
             self._require_vm(vmid)
             self._vms[vmid]["status"] = "running"
             self._vms[vmid]["uptime"] = 1
             return self._make_upid(parts[1])
 
-        if len(parts) == 6 and parts[0] == "nodes" and parts[2] == "qemu" and parts[4] == "status" and parts[5] in ("stop", "shutdown"):
+        if (
+            len(parts) == 6
+            and parts[0] == "nodes"
+            and parts[2] == "qemu"
+            and parts[4] == "status"
+            and parts[5] in ("stop", "shutdown")
+        ):
             vmid = int(parts[3])
             self._require_vm(vmid)
             self._vms[vmid]["status"] = "stopped"
             self._vms[vmid]["uptime"] = 0
             return self._make_upid(parts[1])
 
-        if len(parts) == 6 and parts[0] == "nodes" and parts[2] == "qemu" and parts[4] == "status" and parts[5] == "reboot":
+        if (
+            len(parts) == 6
+            and parts[0] == "nodes"
+            and parts[2] == "qemu"
+            and parts[4] == "status"
+            and parts[5] == "reboot"
+        ):
             vmid = int(parts[3])
             self._require_vm(vmid)
             self._vms[vmid]["status"] = "running"
             return self._make_upid(parts[1])
 
-        if len(parts) == 5 and parts[0] == "nodes" and parts[2] == "qemu" and parts[4] == "clone":
+        if (
+            len(parts) == 5
+            and parts[0] == "nodes"
+            and parts[2] == "qemu"
+            and parts[4] == "clone"
+        ):
             src_vmid = int(parts[3])
             self._require_vm(src_vmid)
             new_vmid = int(data["newid"])
@@ -400,7 +470,12 @@ class FakeBackend:
             self.add_vm(new_vmid, node=node, name=name, status="stopped")
             return self._make_upid(parts[1])
 
-        if len(parts) == 5 and parts[0] == "nodes" and parts[2] == "qemu" and parts[4] == "snapshots":
+        if (
+            len(parts) == 5
+            and parts[0] == "nodes"
+            and parts[2] == "qemu"
+            and parts[4] == "snapshots"
+        ):
             vmid = int(parts[3])
             self._require_vm(vmid)
             snap = {
@@ -415,13 +490,24 @@ class FakeBackend:
             self._snapshots.setdefault(vmid, []).append(snap)
             return self._make_upid(parts[1])
 
-        if len(parts) == 7 and parts[0] == "nodes" and parts[2] == "qemu" and parts[4] == "snapshots" and parts[6] == "rollback":
+        if (
+            len(parts) == 7
+            and parts[0] == "nodes"
+            and parts[2] == "qemu"
+            and parts[4] == "snapshots"
+            and parts[6] == "rollback"
+        ):
             vmid = int(parts[3])
             self._require_vm(vmid)
             return self._make_upid(parts[1])
 
         # agent/ping — used by wait_for_agent
-        if len(parts) == 5 and parts[0] == "nodes" and parts[2] == "qemu" and parts[4] == "agent":
+        if (
+            len(parts) == 5
+            and parts[0] == "nodes"
+            and parts[2] == "qemu"
+            and parts[4] == "agent"
+        ):
             return {}
 
         raise KeyError(f"FakeBackend: unhandled POST path: {path!r}")
@@ -429,12 +515,22 @@ class FakeBackend:
     def _handle_put(self, path: str, data: dict[str, Any]) -> Any:
         parts = path.strip("/").split("/")
 
-        if len(parts) == 5 and parts[0] == "nodes" and parts[2] == "qemu" and parts[4] == "resize":
+        if (
+            len(parts) == 5
+            and parts[0] == "nodes"
+            and parts[2] == "qemu"
+            and parts[4] == "resize"
+        ):
             vmid = int(parts[3])
             self._require_vm(vmid)
             return None
 
-        if len(parts) == 5 and parts[0] == "nodes" and parts[2] == "qemu" and parts[4] == "config":
+        if (
+            len(parts) == 5
+            and parts[0] == "nodes"
+            and parts[2] == "qemu"
+            and parts[4] == "config"
+        ):
             vmid = int(parts[3])
             self._require_vm(vmid)
             self._vms[vmid].update(data)
@@ -452,7 +548,12 @@ class FakeBackend:
             self._snapshots.pop(vmid, None)
             return self._make_upid(parts[1])
 
-        if len(parts) == 6 and parts[0] == "nodes" and parts[2] == "qemu" and parts[4] == "snapshots":
+        if (
+            len(parts) == 6
+            and parts[0] == "nodes"
+            and parts[2] == "qemu"
+            and parts[4] == "snapshots"
+        ):
             vmid = int(parts[3])
             snap_name = parts[5]
             snaps = self._snapshots.get(vmid, [])
@@ -481,7 +582,9 @@ class FakeSshBackend:
     def seed_file(self, path: str, content: str) -> None:
         self._files[path] = content
 
-    def seed_response(self, command_prefix: str, exit_code: int, stdout: str, stderr: str = "") -> None:
+    def seed_response(
+        self, command_prefix: str, exit_code: int, stdout: str, stderr: str = ""
+    ) -> None:
         self._responses[command_prefix] = (exit_code, stdout, stderr)
 
     def run(self, command: str) -> tuple[int, str, str]:
@@ -501,39 +604,78 @@ class FakeSshBackend:
         for cmd in self.commands:
             if substring in cmd:
                 return
-        raise AssertionError(f"Expected a command containing {substring!r}. Ran: {self.commands}")
+        raise AssertionError(
+            f"Expected a command containing {substring!r}. Ran: {self.commands}"
+        )
 ```
 
 - [ ] **Step 3: Update `__init__.py` to import from new locations**
 
 ```python
-from proxmox_sdk._backend import ProxmoxBackend, ProxmoxerBackend, SshBackend, ParamikoSshBackend, CommandResult
+from proxmox_sdk._backend import (
+    ProxmoxBackend,
+    ProxmoxerBackend,
+    SshBackend,
+    ParamikoSshBackend,
+    CommandResult,
+)
 from proxmox_sdk.client import ProxmoxClient
 from proxmox_sdk.exceptions import (
-    NodeNotFoundError, ProxmoxAPIError, ProxmoxAuthError,
-    ProxmoxConnectionError, ProxmoxError, ProxmoxTimeoutError,
-    SnapshotNotFoundError, TaskFailedError, VmNotFoundError, VmStateError,
+    NodeNotFoundError,
+    ProxmoxAPIError,
+    ProxmoxAuthError,
+    ProxmoxConnectionError,
+    ProxmoxError,
+    ProxmoxTimeoutError,
+    SnapshotNotFoundError,
+    TaskFailedError,
+    VmNotFoundError,
+    VmStateError,
 )
 from proxmox_sdk.models import (
-    CloudInitConfig, NodeInfo, SnapshotInfo, TemplateInfo,
-    VmConfig, VmInfo, VmMetrics, VmState,
+    CloudInitConfig,
+    NodeInfo,
+    SnapshotInfo,
+    TemplateInfo,
+    VmConfig,
+    VmInfo,
+    VmMetrics,
+    VmState,
 )
 from proxmox_sdk.routing import PortMapping, ProxmoxRoutingManager
 from proxmox_sdk.testing import FakeBackend, FakeSshBackend
 from proxmox_sdk.vm import ProxmoxVM
 
 __all__ = [
-    "ProxmoxClient", "ProxmoxVM",
-    "VmConfig", "CloudInitConfig", "CommandResult",
-    "NodeInfo", "SnapshotInfo", "TemplateInfo",
-    "VmInfo", "VmMetrics", "VmState",
-    "ProxmoxError", "ProxmoxAuthError", "ProxmoxConnectionError",
-    "ProxmoxAPIError", "VmNotFoundError", "VmStateError",
-    "NodeNotFoundError", "ProxmoxTimeoutError", "SnapshotNotFoundError",
+    "ProxmoxClient",
+    "ProxmoxVM",
+    "VmConfig",
+    "CloudInitConfig",
+    "CommandResult",
+    "NodeInfo",
+    "SnapshotInfo",
+    "TemplateInfo",
+    "VmInfo",
+    "VmMetrics",
+    "VmState",
+    "ProxmoxError",
+    "ProxmoxAuthError",
+    "ProxmoxConnectionError",
+    "ProxmoxAPIError",
+    "VmNotFoundError",
+    "VmStateError",
+    "NodeNotFoundError",
+    "ProxmoxTimeoutError",
+    "SnapshotNotFoundError",
     "TaskFailedError",
-    "FakeBackend", "FakeSshBackend",
-    "ProxmoxBackend", "ProxmoxerBackend", "SshBackend", "ParamikoSshBackend",
-    "ProxmoxRoutingManager", "PortMapping",
+    "FakeBackend",
+    "FakeSshBackend",
+    "ProxmoxBackend",
+    "ProxmoxerBackend",
+    "SshBackend",
+    "ParamikoSshBackend",
+    "ProxmoxRoutingManager",
+    "PortMapping",
 ]
 ```
 
@@ -642,22 +784,38 @@ class ProxmoxClient:
             self._backend = backend
         else:
             self._backend = self._build_backend(
-                host=host, user=user, password=password,
-                token_name=token_name, token_value=token_value,
-                port=port, verify_ssl=verify_ssl,
+                host=host,
+                user=user,
+                password=password,
+                token_name=token_name,
+                token_value=token_value,
+                port=port,
+                verify_ssl=verify_ssl,
             )
 
     @classmethod
     def from_url(
-        cls, api_url: str, user: str,
-        password: str | None = None, *, token_name: str | None = None,
-        token_value: str | None = None, verify_ssl: bool = False,
+        cls,
+        api_url: str,
+        user: str,
+        password: str | None = None,
+        *,
+        token_name: str | None = None,
+        token_value: str | None = None,
+        verify_ssl: bool = False,
         node: str | None = None,
     ) -> "ProxmoxClient":
         host, port = parse_proxmox_url(api_url)
-        return cls(host=host, user=user, password=password,
-                   token_name=token_name, token_value=token_value,
-                   port=port, verify_ssl=verify_ssl, node=node)
+        return cls(
+            host=host,
+            user=user,
+            password=password,
+            token_name=token_name,
+            token_value=token_value,
+            port=port,
+            verify_ssl=verify_ssl,
+            node=node,
+        )
 
     # ------------------------------------------------------------ get_vm
 
@@ -711,7 +869,10 @@ class ProxmoxClient:
 
         upid = self._backend.post(
             f"nodes/{target_node}/qemu/{template_id}/clone",
-            newid=new_vmid, name=name, target=target_node, full=1,
+            newid=new_vmid,
+            name=name,
+            target=target_node,
+            full=1,
         )
         self._backend.wait_for_task(target_node, upid)
 
@@ -723,7 +884,9 @@ class ProxmoxClient:
         if cfg.memory_mb is not None:
             hw_params["memory"] = cfg.memory_mb
         if hw_params:
-            self._backend.put(f"nodes/{target_node}/qemu/{new_vmid}/config", **hw_params)
+            self._backend.put(
+                f"nodes/{target_node}/qemu/{new_vmid}/config", **hw_params
+            )
         if cfg.disk_gb is not None:
             vm.resize_disk("scsi0", f"{cfg.disk_gb}G")
 
@@ -738,7 +901,10 @@ class ProxmoxClient:
     # ----------------------------------------------------- launch_many
 
     def launch_many(
-        self, configs: list[VmConfig], *, max_workers: int | None = None,
+        self,
+        configs: list[VmConfig],
+        *,
+        max_workers: int | None = None,
     ) -> list[ProxmoxVM]:
         if not configs:
             return []
@@ -796,9 +962,14 @@ class ProxmoxClient:
             return vm
         except VmNotFoundError:
             return self.launch(
-                name, template_id, node=node, cores=cores,
-                memory_mb=memory_mb, disk_gb=disk_gb,
-                cloud_init_config=cloud_init_config, start=True,
+                name,
+                template_id,
+                node=node,
+                cores=cores,
+                memory_mb=memory_mb,
+                disk_gb=disk_gb,
+                cloud_init_config=cloud_init_config,
+                start=True,
             )
 
     # ------------------------------------------------------ list / nodes / templates
@@ -866,9 +1037,13 @@ class ProxmoxClient:
 
     @staticmethod
     def _build_backend(
-        host: str, user: str, password: str | None,
-        token_name: str | None, token_value: str | None,
-        port: int, verify_ssl: bool,
+        host: str,
+        user: str,
+        password: str | None,
+        token_name: str | None,
+        token_value: str | None,
+        port: int,
+        verify_ssl: bool,
     ) -> ProxmoxBackend:
         try:
             from proxmoxer import ProxmoxAPI
@@ -881,13 +1056,20 @@ class ProxmoxClient:
 
         if token_name and token_value:
             api = ProxmoxAPI(
-                host, user=user, token_name=token_name,
-                token_value=token_value, verify_ssl=verify_ssl, port=port,
+                host,
+                user=user,
+                token_name=token_name,
+                token_value=token_value,
+                verify_ssl=verify_ssl,
+                port=port,
             )
         else:
             api = ProxmoxAPI(
-                host, user=user, password=password or "",
-                verify_ssl=verify_ssl, port=port,
+                host,
+                user=user,
+                password=password or "",
+                verify_ssl=verify_ssl,
+                port=port,
             )
         return ProxmoxerBackend(api)
 
@@ -914,33 +1096,37 @@ git commit -m "feat: replace create_vm with launch/launch_many/ensure_running AP
 Add to ProxmoxVM class, after `exec()`:
 
 ```python
-    def exec_structured(
-        self, argv: list[str], *, env: dict[str, str] | None = None,
-        cwd: str | None = None,
-    ) -> CommandResult:
-        """Run a command with env vars and working directory via guest agent."""
-        from shlex import quote
-        from proxmox_sdk._backend import CommandResult
+def exec_structured(
+    self,
+    argv: list[str],
+    *,
+    env: dict[str, str] | None = None,
+    cwd: str | None = None,
+) -> CommandResult:
+    """Run a command with env vars and working directory via guest agent."""
+    from shlex import quote
+    from proxmox_sdk._backend import CommandResult
 
-        parts: list[str] = []
-        if cwd:
-            parts.append(f"cd {quote(cwd)}")
-        for k, v in (env or {}).items():
-            parts.append(f"export {k}={quote(v)}")
-        parts.append(" ".join(quote(a) for a in argv))
-        command = " && ".join(parts)
-        return self.exec(["bash", "-lc", command])
+    parts: list[str] = []
+    if cwd:
+        parts.append(f"cd {quote(cwd)}")
+    for k, v in (env or {}).items():
+        parts.append(f"export {k}={quote(v)}")
+    parts.append(" ".join(quote(a) for a in argv))
+    command = " && ".join(parts)
+    return self.exec(["bash", "-lc", command])
 
-    def transfer(self, source: str, dest: str) -> None:
-        """Transfer a file to/from the VM via SSH (not guest agent).
 
-        Requires ParamikoSshBackend or similar SSH connection to the VM.
-        The VM must be reachable via SSH.
-        """
-        raise NotImplementedError(
-            "transfer() requires an SSH connection to the VM. "
-            "Use ProxmoxRoutingManager for NAT port forwarding first."
-        )
+def transfer(self, source: str, dest: str) -> None:
+    """Transfer a file to/from the VM via SSH (not guest agent).
+
+    Requires ParamikoSshBackend or similar SSH connection to the VM.
+    The VM must be reachable via SSH.
+    """
+    raise NotImplementedError(
+        "transfer() requires an SSH connection to the VM. "
+        "Use ProxmoxRoutingManager for NAT port forwarding first."
+    )
 ```
 
 - [ ] **Step 2: Commit**
@@ -1029,7 +1215,9 @@ def _verify_vm(vm: ProxmoxVM, idx: int, total: int, timeout: float) -> int:
         exit_code = 1
 
     info = vm.info()
-    print(f"{label}: state={info.state.value}  node={info.node}  cores={info.cpu_count}  mem={info.memory_mb}MB")
+    print(
+        f"{label}: state={info.state.value}  node={info.node}  cores={info.cpu_count}  mem={info.memory_mb}MB"
+    )
     return exit_code
 
 
@@ -1038,18 +1226,29 @@ def main() -> None:
         description="End-to-end Proxmox VM lifecycle test (create, verify, delete)."
     )
     parser.add_argument("--name", default=None, help="VM name prefix.")
-    parser.add_argument("--template-id", type=int, default=None, help="Template VMID to clone.")
-    parser.add_argument("--node", default=None, help="Proxmox node (default: PROXMOX_NODE env).")
+    parser.add_argument(
+        "--template-id", type=int, default=None, help="Template VMID to clone."
+    )
+    parser.add_argument(
+        "--node", default=None, help="Proxmox node (default: PROXMOX_NODE env)."
+    )
     parser.add_argument("--cores", type=int, default=None)
     parser.add_argument("--memory-mb", type=int, default=None)
     parser.add_argument("--disk-gb", type=int, default=None)
-    parser.add_argument("--timeout", type=float, default=300, help="Max wait seconds (default: 300).")
-    parser.add_argument("--count", type=int, default=1, help="Number of VMs (default: 1).")
     parser.add_argument(
-        "--configs", default=None,
+        "--timeout", type=float, default=300, help="Max wait seconds (default: 300)."
+    )
+    parser.add_argument(
+        "--count", type=int, default=1, help="Number of VMs (default: 1)."
+    )
+    parser.add_argument(
+        "--configs",
+        default=None,
         help="JSON array of VmConfig objects. Mutually exclusive with --count.",
     )
-    parser.add_argument("--list-templates", action="store_true", help="List templates and exit.")
+    parser.add_argument(
+        "--list-templates", action="store_true", help="List templates and exit."
+    )
     args = parser.parse_args()
 
     if args.configs and args.count != 1:
@@ -1065,9 +1264,13 @@ def main() -> None:
     node = args.node or os.environ.get("PROXMOX_NODE")
 
     client = ProxmoxClient(
-        host=host, user=user, password=password,
-        token_name=token_name, token_value=token_value,
-        node=node, verify_ssl=False,
+        host=host,
+        user=user,
+        password=password,
+        token_name=token_name,
+        token_value=token_value,
+        node=node,
+        verify_ssl=False,
     )
 
     if args.list_templates:
@@ -1075,7 +1278,9 @@ def main() -> None:
         print(f"{'VMID':>6}  {'Name':<30}  {'Node':<10}  {'Cores':>6}  {'Memory':>10}")
         print("-" * 75)
         for t in templates:
-            print(f"{t.vm_id:>6}  {t.name:<30}  {t.node:<10}  {t.cores:>6}  {t.memory_mb:>8}MB")
+            print(
+                f"{t.vm_id:>6}  {t.name:<30}  {t.node:<10}  {t.cores:>6}  {t.memory_mb:>8}MB"
+            )
         raise SystemExit(0)
 
     if args.configs:
@@ -1092,15 +1297,25 @@ def main() -> None:
         prefix = args.name or f"e2e-{int(time.time())}"
         if args.count == 1:
             configs = [
-                VmConfig(name=prefix, template_id=args.template_id, node=node,
-                         cores=args.cores, memory_mb=args.memory_mb,
-                         disk_gb=args.disk_gb)
+                VmConfig(
+                    name=prefix,
+                    template_id=args.template_id,
+                    node=node,
+                    cores=args.cores,
+                    memory_mb=args.memory_mb,
+                    disk_gb=args.disk_gb,
+                )
             ]
         else:
             configs = [
-                VmConfig(name=f"{prefix}-{i}", template_id=args.template_id,
-                         node=node, cores=args.cores, memory_mb=args.memory_mb,
-                         disk_gb=args.disk_gb)
+                VmConfig(
+                    name=f"{prefix}-{i}",
+                    template_id=args.template_id,
+                    node=node,
+                    cores=args.cores,
+                    memory_mb=args.memory_mb,
+                    disk_gb=args.disk_gb,
+                )
                 for i in range(args.count)
             ]
 
@@ -1118,7 +1333,9 @@ def main() -> None:
         t0 = time.monotonic()
         vms = client.launch_many(configs)
         dt = time.monotonic() - t0
-        print(f"       {'launch' if n == 1 else f'all {n} launches'} completed in {dt:.1f}s")
+        print(
+            f"       {'launch' if n == 1 else f'all {n} launches'} completed in {dt:.1f}s"
+        )
 
         print(f"[2/3] Verifying {n} VM(s) ...")
         for i, vm in enumerate(vms, start=1):
@@ -1216,10 +1433,12 @@ from dataclasses import dataclass
 import grimp
 
 ROOT_PACKAGE = "proxmox_sdk"
-EXCLUDED_MODULES = frozenset({
-    "proxmox_sdk.devtools.package_report",
-    "proxmox_sdk.devtools.quality",
-})
+EXCLUDED_MODULES = frozenset(
+    {
+        "proxmox_sdk.devtools.package_report",
+        "proxmox_sdk.devtools.quality",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -1233,7 +1452,9 @@ class ModuleMetrics:
 
 
 def calculate_metrics(
-    *, modules: Sequence[str], edges: Iterable[tuple[str, str]],
+    *,
+    modules: Sequence[str],
+    edges: Iterable[tuple[str, str]],
 ) -> list[ModuleMetrics]:
     mod_set = frozenset(modules)
     internal_counts = {m: 0 for m in modules}
@@ -1258,12 +1479,21 @@ def calculate_metrics(
         incoming = incoming_counts[module]
         denominator = incoming + outgoing
         instability = round(outgoing / denominator, 2) if denominator else 0.0
-        short = module[len(ROOT_PACKAGE) + 1:] if module.startswith(f"{ROOT_PACKAGE}.") else module
-        metrics.append(ModuleMetrics(
-            module=short, internal_imports=internal_counts[module],
-            outgoing_imports=outgoing, incoming_imports=incoming,
-            external_imports=external_counts[module], instability=instability,
-        ))
+        short = (
+            module[len(ROOT_PACKAGE) + 1 :]
+            if module.startswith(f"{ROOT_PACKAGE}.")
+            else module
+        )
+        metrics.append(
+            ModuleMetrics(
+                module=short,
+                internal_imports=internal_counts[module],
+                outgoing_imports=outgoing,
+                incoming_imports=incoming,
+                external_imports=external_counts[module],
+                instability=instability,
+            )
+        )
     return metrics
 
 
@@ -1283,14 +1513,17 @@ def format_metrics_table(metrics: Sequence[ModuleMetrics]) -> str:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Report import graph metrics for proxmox_sdk.")
+    parser = argparse.ArgumentParser(
+        description="Report import graph metrics for proxmox_sdk."
+    )
     parser.add_argument("--edges", action="store_true")
     parser.add_argument("--orphans", action="store_true")
     args = parser.parse_args()
 
     graph = grimp.build_graph(ROOT_PACKAGE, include_external_packages=False)
     modules = sorted(
-        m for m in graph.modules
+        m
+        for m in graph.modules
         if (m == ROOT_PACKAGE or m.startswith(f"{ROOT_PACKAGE}."))
         and m not in EXCLUDED_MODULES
     )
@@ -1307,8 +1540,16 @@ def main() -> None:
         for importer, imported in edges:
             if importer in EXCLUDED_MODULES or imported in EXCLUDED_MODULES:
                 continue
-            short_i = importer[len(ROOT_PACKAGE) + 1:] if importer.startswith(f"{ROOT_PACKAGE}.") else importer
-            short_d = imported[len(ROOT_PACKAGE) + 1:] if imported.startswith(f"{ROOT_PACKAGE}.") else imported
+            short_i = (
+                importer[len(ROOT_PACKAGE) + 1 :]
+                if importer.startswith(f"{ROOT_PACKAGE}.")
+                else importer
+            )
+            short_d = (
+                imported[len(ROOT_PACKAGE) + 1 :]
+                if imported.startswith(f"{ROOT_PACKAGE}.")
+                else imported
+            )
             print(f"  {short_i} -> {short_d}")
 
     if args.orphans:
@@ -1322,7 +1563,11 @@ def main() -> None:
         if orphans:
             print("\n[Orphan modules]")
             for o in orphans:
-                short = o[len(ROOT_PACKAGE) + 1:] if o.startswith(f"{ROOT_PACKAGE}.") else o
+                short = (
+                    o[len(ROOT_PACKAGE) + 1 :]
+                    if o.startswith(f"{ROOT_PACKAGE}.")
+                    else o
+                )
                 print(f"  {short}")
 
 
@@ -1341,11 +1586,13 @@ from dataclasses import dataclass
 from pathlib import Path
 
 ROOT_PACKAGE = "proxmox_sdk"
-EXCLUDED_MODULES = frozenset({
-    "proxmox_sdk.devtools.package_report",
-    "proxmox_sdk.devtools.quality",
-    "proxmox_sdk.devtools.code_eval",
-})
+EXCLUDED_MODULES = frozenset(
+    {
+        "proxmox_sdk.devtools.package_report",
+        "proxmox_sdk.devtools.quality",
+        "proxmox_sdk.devtools.code_eval",
+    }
+)
 
 
 @dataclass
@@ -1372,23 +1619,47 @@ def _check_ast(modules: list[str]) -> list[Smell]:
             if isinstance(node, ast.Try):
                 for handler in node.handlers:
                     if handler.type is None:
-                        smells.append(Smell("bug", "high", str(py_file), handler.lineno,
-                                            "Bare except: — catches KeyboardInterrupt and SystemExit"))
+                        smells.append(
+                            Smell(
+                                "bug",
+                                "high",
+                                str(py_file),
+                                handler.lineno,
+                                "Bare except: — catches KeyboardInterrupt and SystemExit",
+                            )
+                        )
 
         # broad except
         for node in ast.walk(tree):
             if isinstance(node, ast.ExceptHandler):
-                if node.type and ast.unparse(node.type) in ("Exception", "BaseException"):
-                    smells.append(Smell("bug", "medium", str(py_file), node.lineno,
-                                        f"Broad except clause catches {ast.unparse(node.type)}"))
+                if node.type and ast.unparse(node.type) in (
+                    "Exception",
+                    "BaseException",
+                ):
+                    smells.append(
+                        Smell(
+                            "bug",
+                            "medium",
+                            str(py_file),
+                            node.lineno,
+                            f"Broad except clause catches {ast.unparse(node.type)}",
+                        )
+                    )
 
         # mutable defaults
         for node in ast.walk(tree):
             if isinstance(node, ast.FunctionDef):
                 for default in node.args.defaults + node.args.kw_defaults:
                     if default and isinstance(default, (ast.List, ast.Dict, ast.Set)):
-                        smells.append(Smell("bug", "high", str(py_file), default.lineno,
-                                            f"Mutable default argument in `{node.name}()`"))
+                        smells.append(
+                            Smell(
+                                "bug",
+                                "high",
+                                str(py_file),
+                                default.lineno,
+                                f"Mutable default argument in `{node.name}()`",
+                            )
+                        )
 
         # large functions (>30 lines)
         for node in ast.walk(tree):
@@ -1396,8 +1667,15 @@ def _check_ast(modules: list[str]) -> list[Smell]:
                 end = node.end_lineno or node.lineno
                 loc = end - node.lineno + 1
                 if loc > 30:
-                    smells.append(Smell("simplification", "medium", str(py_file), node.lineno,
-                                        f"Function `{node.name}()` is {loc} lines (max: 30)"))
+                    smells.append(
+                        Smell(
+                            "simplification",
+                            "medium",
+                            str(py_file),
+                            node.lineno,
+                            f"Function `{node.name}()` is {loc} lines (max: 30)",
+                        )
+                    )
 
     return smells
 
@@ -1423,14 +1701,20 @@ def format_report(smells: list[Smell]) -> str:
         if not items:
             lines.append("  (none)\n")
             continue
-        for item in sorted(items, key=lambda s: {"high": 0, "medium": 1, "low": 2}[s.severity]):
-            lines.append(f"  [{item.severity.upper()}] {item.file}:{item.line} — {item.message}")
+        for item in sorted(
+            items, key=lambda s: {"high": 0, "medium": 1, "low": 2}[s.severity]
+        ):
+            lines.append(
+                f"  [{item.severity.upper()}] {item.file}:{item.line} — {item.message}"
+            )
         lines.append("")
     return "\n".join(lines)
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Evaluate code quality: bugs, simplifications, smells.")
+    parser = argparse.ArgumentParser(
+        description="Evaluate code quality: bugs, simplifications, smells."
+    )
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
 
@@ -1445,9 +1729,17 @@ def main() -> None:
 
     if args.json:
         import json
-        items = [{"category": s.category, "severity": s.severity,
-                  "file": s.file, "line": s.line, "message": s.message}
-                 for s in all_smells]
+
+        items = [
+            {
+                "category": s.category,
+                "severity": s.severity,
+                "file": s.file,
+                "line": s.line,
+                "message": s.message,
+            }
+            for s in all_smells
+        ]
         print(json.dumps(items, indent=2))
     else:
         print(format_report(all_smells))
@@ -1545,19 +1837,42 @@ from proxmox_sdk import FakeBackend, ProxmoxClient
 @pytest.fixture
 def fake_backend() -> FakeBackend:
     backend = FakeBackend()
-    backend.add_vm(100, node="pve", name="stopped-vm", status="stopped",
-                   cpus=2, maxmem=2 * 1024 * 1024 * 1024, mem=512 * 1024 * 1024, cpu=0.0)
-    backend.add_vm(101, node="pve", name="running-vm", status="running",
-                   cpus=4, maxmem=4 * 1024 * 1024 * 1024, mem=1 * 1024 * 1024 * 1024,
-                   cpu=0.05, uptime=3600)
-    backend.add_vm(9000, node="pve", name="ubuntu-template", status="stopped", template=True)
+    backend.add_vm(
+        100,
+        node="pve",
+        name="stopped-vm",
+        status="stopped",
+        cpus=2,
+        maxmem=2 * 1024 * 1024 * 1024,
+        mem=512 * 1024 * 1024,
+        cpu=0.0,
+    )
+    backend.add_vm(
+        101,
+        node="pve",
+        name="running-vm",
+        status="running",
+        cpus=4,
+        maxmem=4 * 1024 * 1024 * 1024,
+        mem=1 * 1024 * 1024 * 1024,
+        cpu=0.05,
+        uptime=3600,
+    )
+    backend.add_vm(
+        9000, node="pve", name="ubuntu-template", status="stopped", template=True
+    )
     return backend
 
 
 @pytest.fixture
 def client(fake_backend: FakeBackend) -> ProxmoxClient:
-    return ProxmoxClient(host="fake-host", user="root@pam", password="fake-password",
-                         node="pve", backend=fake_backend)
+    return ProxmoxClient(
+        host="fake-host",
+        user="root@pam",
+        password="fake-password",
+        node="pve",
+        backend=fake_backend,
+    )
 ```
 
 - [ ] **Step 3: Update test imports** — all tests that imported from `proxmox_sdk.backends.fake` must now import from `proxmox_sdk.testing`
@@ -1569,6 +1884,7 @@ from proxmox_sdk.backends.ssh import FakeSshBackend
 
 # New
 from proxmox_sdk.testing import FakeBackend, FakeSshBackend
+
 # or
 from proxmox_sdk import FakeBackend, FakeSshBackend
 ```

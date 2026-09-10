@@ -11,7 +11,6 @@ import pytest
 
 from proxmox_sdk import ProxmoxClient
 
-
 pytestmark = pytest.mark.integration
 
 

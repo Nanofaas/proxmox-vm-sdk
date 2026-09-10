@@ -1,5 +1,4 @@
-"""
-proxmox-sdk: Pythonic SDK for Proxmox VE VM management.
+"""proxmox-sdk: Pythonic SDK for Proxmox VE VM management.
 
 Mirrors the multipass-sdk API design:
   https://github.com/miciav/multipass-sdk
@@ -12,7 +11,6 @@ from proxmox_sdk._backend import (
     ProxmoxerBackend,
     SshBackend,
 )
-from proxmox_sdk.routing import PortMapping, ProxmoxRoutingManager
 from proxmox_sdk.client import ProxmoxClient
 from proxmox_sdk.exceptions import (
     NodeNotFoundError,
@@ -37,10 +35,14 @@ from proxmox_sdk.models import (
     VmMetrics,
     VmState,
 )
+from proxmox_sdk.routing import PortMapping, ProxmoxRoutingManager
 from proxmox_sdk.testing import FakeBackend, FakeSshBackend
 from proxmox_sdk.vm import ProxmoxVM
 
-__all__ = [
+# Grouped by kind rather than sorted alphabetically: the exception entries are
+# in hierarchy order (base first), and losing that to satisfy RUF022 would trade
+# real information for a cosmetic ordering guarantee.
+__all__ = [  # noqa: RUF022
     # Entry points
     "ProxmoxClient",
     "ProxmoxVM",

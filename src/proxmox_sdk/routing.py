@@ -1,5 +1,4 @@
-"""
-Proxmox host NAT / port-forwarding management.
+"""Proxmox host NAT / port-forwarding management.
 
 Mirrors the functionality of the add_nat_rules.yml and remove_nat_rules.yml
 Ansible playbooks from proxmox-stack-deployer, implemented in pure Python
@@ -16,8 +15,12 @@ Usage::
     )
 
     mappings = [
-        PortMapping(vm_id=100, vm_name="node-1", vm_ip="10.0.0.10", vm_port=22, service="SSH"),
-        PortMapping(vm_id=100, vm_name="node-1", vm_ip="10.0.0.10", vm_port=6443, service="k3s"),
+        PortMapping(
+            vm_id=100, vm_name="node-1", vm_ip="10.0.0.10", vm_port=22, service="SSH"
+        ),
+        PortMapping(
+            vm_id=100, vm_name="node-1", vm_ip="10.0.0.10", vm_port=6443, service="k3s"
+        ),
     ]
     assigned = mgr.add_rules(mappings)
     for m in assigned:
@@ -49,8 +52,7 @@ _RULE_RE = re.compile(
 
 @dataclass
 class PortMapping:
-    """
-    Describes a single port-forwarding rule: host_port → vm_ip:vm_port.
+    """Describes a single port-forwarding rule: host_port → vm_ip:vm_port.
 
     ``host_port`` is ``None`` before ``add_rules()`` assigns it dynamically.
     """
@@ -65,14 +67,18 @@ class PortMapping:
     vm_role: str | None = None
 
     def tag(self) -> str:
+        """Return the comment tag embedded in this mapping's iptables rules.
+
+        The tag records the VM id, VM name and service so a rule can be matched
+        back to the mapping that wrote it.
+        """
         return _RULE_TAG.format(
             vm_id=self.vm_id, vm_name=self.vm_name, service=self.service
         )
 
 
 class ProxmoxRoutingManager:
-    """
-    Manages NAT port-forwarding rules on a Proxmox host.
+    """Manages NAT port-forwarding rules on a Proxmox host.
 
     All rule state lives in the host's ``interfaces_file``
     (default: ``/etc/network/interfaces``). Rules survive reboots because
@@ -90,13 +96,20 @@ class ProxmoxRoutingManager:
 
     def __init__(
         self,
-        backend: "SshBackend",
+        backend: SshBackend,
         *,
         interfaces_file: str = DEFAULT_INTERFACES_FILE,
         external_iface: str = DEFAULT_EXTERNAL_IFACE,
         internal_iface: str = DEFAULT_INTERNAL_IFACE,
         port_range: tuple[int, int] = DEFAULT_PORT_RANGE,
     ) -> None:
+        """Bind a routing manager to an SSH backend.
+
+        `interfaces_file` is the file the rules are read from and written to,
+        `external_iface` the interface the DNAT rules are bound to, and
+        `internal_iface` the stanza new rules are inserted after. Host ports
+        are assigned from `port_range`.
+        """
         self._backend = backend
         self.interfaces_file = interfaces_file
         self.external_iface = external_iface
@@ -116,7 +129,7 @@ class ProxmoxRoutingManager:
         *,
         port: int = 22,
         **kwargs: object,
-    ) -> "ProxmoxRoutingManager":
+    ) -> ProxmoxRoutingManager:
         """Connect with SSH key authentication."""
         from proxmox_sdk._backend import ParamikoSshBackend
 
@@ -132,7 +145,7 @@ class ProxmoxRoutingManager:
         *,
         port: int = 22,
         **kwargs: object,
-    ) -> "ProxmoxRoutingManager":
+    ) -> ProxmoxRoutingManager:
         """Connect with password authentication."""
         from proxmox_sdk._backend import ParamikoSshBackend
 
@@ -144,8 +157,7 @@ class ProxmoxRoutingManager:
     # ------------------------------------------------------------------
 
     def add_rules(self, mappings: list[PortMapping]) -> list[PortMapping]:
-        """
-        Assign host ports and add PREROUTING DNAT rules to the interfaces file.
+        """Assign host ports and add PREROUTING DNAT rules to the interfaces file.
 
         Steps (mirrors add_nat_rules.yml):
         1. Collect currently-used ports from ``ss -tln``
@@ -157,7 +169,13 @@ class ProxmoxRoutingManager:
         7. Reload interfaces (``ifreload --all``)
 
         Returns the input list with ``host_port`` filled in on each mapping.
+
+        An empty ``mappings`` is a no-op that returns an empty list, without
+        touching the interfaces file or reloading iptables.
         """
+        if not mappings:
+            return []
+
         reserved = self._collect_reserved_ports()
         available = self._available_ports(reserved, count=len(mappings))
 
@@ -171,6 +189,7 @@ class ProxmoxRoutingManager:
         for mapping, host_port in zip(
             sorted(mappings, key=lambda m: f"{m.vm_name}_{m.service}"),
             available,
+            strict=True,
         ):
             mapping.host_port = host_port
             assigned.append(mapping)
@@ -187,9 +206,7 @@ class ProxmoxRoutingManager:
             )
             # Insert before the first blank line after the target interface
             # stanza, or append at end if the interface block is not found.
-            insert_idx = self._find_iface_insert_point(
-                lines, self.internal_iface
-            )
+            insert_idx = self._find_iface_insert_point(lines, self.internal_iface)
             lines.insert(insert_idx, post_down)
             lines.insert(insert_idx, post_up)
 
@@ -198,8 +215,7 @@ class ProxmoxRoutingManager:
         return assigned
 
     def remove_rules(self, mappings: list[PortMapping]) -> None:
-        """
-        Remove PREROUTING DNAT rules for the given VMs from the interfaces file.
+        """Remove PREROUTING DNAT rules for the given VMs from the interfaces file.
 
         Steps (mirrors remove_nat_rules.yml):
         1. Remove matching lines from the interfaces file
@@ -210,15 +226,12 @@ class ProxmoxRoutingManager:
         self._flush_and_reload()
 
     def list_rules(self) -> list[PortMapping]:
-        """
-        Parse the interfaces file and return all rules written by this manager.
-        """
+        """Parse the interfaces file and return all rules written by this manager."""
         content = self._backend.read_file(self.interfaces_file)
         return self._parse_rules(content)
 
     def flush_rules(self) -> None:
-        """
-        Flush all iptables PREROUTING rules and reload interfaces.
+        """Flush all iptables PREROUTING rules and reload interfaces.
 
         This removes active (in-memory) rules without modifying the
         interfaces file. Rules will be re-applied on the next ``ifreload``.
@@ -254,9 +267,14 @@ class ProxmoxRoutingManager:
 
         return active | claimed
 
-    def _available_ports(
-        self, reserved: set[int], count: int
-    ) -> list[int]:
+    def _available_ports(self, reserved: set[int], count: int) -> list[int]:
+        # Asking for zero ports is satisfiable, but the loop below can never
+        # notice: it only returns once `len(available) == count`, which is
+        # already true before the first iteration. Without this the search ran
+        # the whole range and raised "Need 0, found 10000".
+        if count <= 0:
+            return []
+
         start, end = self.port_range
         available: list[int] = []
         for port in range(start, end):
@@ -273,7 +291,13 @@ class ProxmoxRoutingManager:
         content = self._backend.read_file(self.interfaces_file)
         lines = content.splitlines(keepends=True)
         tags = {m.tag() for m in mappings}
-        filtered = [line for line in lines if not any(t in line for t in tags)]
+        # The tag is written as the trailing comment on a rule line, so the line
+        # must END with it. Matching on substring deleted unrelated rules: the
+        # tag for service "SSH" is a prefix of the tag for "SSH2", so removing
+        # the SSH rule took the SSH2 rule with it.
+        filtered = [
+            line for line in lines if not any(line.rstrip().endswith(t) for t in tags)
+        ]
         self._backend.write_file(self.interfaces_file, "".join(filtered))
 
     def _flush_and_reload(self) -> None:
@@ -282,8 +306,7 @@ class ProxmoxRoutingManager:
 
     @staticmethod
     def _find_iface_insert_point(lines: list[str], iface: str) -> int:
-        """
-        Find the line index just before the end of the given iface stanza.
+        """Find the line index just before the end of the given iface stanza.
 
         Looks for ``iface <name>`` and returns the index of the first blank
         line or next ``iface`` line after it (to append post-up before them).
@@ -295,11 +318,14 @@ class ProxmoxRoutingManager:
             if stripped.startswith(f"iface {iface}"):
                 in_block = True
                 continue
-            if in_block:
-                if stripped == "" or (
-                    stripped.startswith("iface ") and not stripped.startswith(f"iface {iface}")
-                ):
-                    return i
+            if in_block and (
+                stripped == ""
+                or (
+                    stripped.startswith("iface ")
+                    and not stripped.startswith(f"iface {iface}")
+                )
+            ):
+                return i
         return len(lines)
 
     @staticmethod

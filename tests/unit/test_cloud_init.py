@@ -3,12 +3,12 @@
 import pytest
 
 from proxmox_sdk import ProxmoxClient
-from proxmox_sdk.testing import FakeBackend
 from proxmox_sdk.models import CloudInitConfig
+from proxmox_sdk.testing import FakeBackend
 from proxmox_sdk.vm import ProxmoxVM
 
 
-@pytest.fixture()
+@pytest.fixture
 def vm_100() -> tuple[FakeBackend, ProxmoxVM]:
     """FakeBackend with VM 100 pre-seeded, plus the ProxmoxVM handle."""
     fb = FakeBackend()
@@ -30,8 +30,8 @@ def test_cloud_init_to_api_params_full() -> None:
     assert params["ciuser"] == "ubuntu"
     assert params["cipassword"] == "secret"
     assert "sshkeys" in params
-    assert " " not in params["sshkeys"]   # spaces must be percent-encoded
-    assert "%" in params["sshkeys"]        # encoding must have occurred
+    assert " " not in params["sshkeys"]  # spaces must be percent-encoded
+    assert "%" in params["sshkeys"]  # encoding must have occurred
     assert params["ipconfig0"] == "ip=dhcp"
     assert params["nameserver"] == "8.8.8.8"
     assert params["searchdomain"] == "local"
@@ -61,6 +61,7 @@ def test_cloud_init_ssh_keys_url_encoded() -> None:
     assert "%" in encoded
     # Round-trip must recover original
     from urllib.parse import unquote
+
     decoded = unquote(encoded)
     assert decoded == "ssh-rsa AAAA key1\nssh-rsa BBBB key2"
 
@@ -107,14 +108,16 @@ def test_configure_cloud_init_stores_fields(
     vm_100: tuple[FakeBackend, ProxmoxVM],
 ) -> None:
     fb, vm = vm_100
-    vm.configure_cloud_init(CloudInitConfig(
-        username="ubuntu",
-        password="s3cr3t",
-        ssh_keys=["ssh-rsa AAAA user@host"],
-        ip_config="ip=dhcp",
-        nameserver="1.1.1.1",
-        searchdomain="home.local",
-    ))
+    vm.configure_cloud_init(
+        CloudInitConfig(
+            username="ubuntu",
+            password="s3cr3t",
+            ssh_keys=["ssh-rsa AAAA user@host"],
+            ip_config="ip=dhcp",
+            nameserver="1.1.1.1",
+            searchdomain="home.local",
+        )
+    )
     stored = fb.get("nodes/pve/qemu/100/config")
     assert stored["ciuser"] == "ubuntu"
     assert stored["cipassword"] == "s3cr3t"
@@ -137,7 +140,11 @@ def test_create_vm_cloud_init_applied_before_start() -> None:
     """cloud-init config must be applied before VM is started."""
     fb = FakeBackend()
     fb.add_vm(
-        9000, node="pve", name="template", status="stopped", template=True,
+        9000,
+        node="pve",
+        name="template",
+        status="stopped",
+        template=True,
         ide2="local-lvm:vm-9000-cloudinit,media=cdrom",
     )
     client = ProxmoxClient(host="x", user="x", node="pve", backend=fb)
@@ -151,15 +158,20 @@ def test_create_vm_cloud_init_applied_before_start() -> None:
 
     # Verify order: config must appear before start in calls
     config_idx = next(
-        i for i, (m, p, _) in enumerate(fb.calls) if m == "PUT" and p.endswith("/config")
+        i
+        for i, (m, p, _) in enumerate(fb.calls)
+        if m == "PUT" and p.endswith("/config")
     )
     start_idx = next(
-        i for i, (m, p, _) in enumerate(fb.calls) if m == "POST" and p.endswith("/start")
+        i
+        for i, (m, p, _) in enumerate(fb.calls)
+        if m == "POST" and p.endswith("/start")
     )
     assert config_idx < start_idx
 
 
 def test_cloud_init_config_importable_from_top_level() -> None:
-    from proxmox_sdk import CloudInitConfig  # noqa: PLC0415
+    from proxmox_sdk import CloudInitConfig
+
     cfg = CloudInitConfig(username="ubuntu")
     assert cfg.username == "ubuntu"
