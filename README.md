@@ -14,6 +14,7 @@ Se lavori dal repository:
 
 ```bash
 uv sync
+uv run pre-commit install
 ```
 
 Il toolchain di sviluppo (ruff, basedpyright, bandit, pytest, pre-commit) sta in
@@ -275,6 +276,11 @@ uv run proxmox-eval
 ## Testing
 
 I test unitari usano `FakeBackend` e `FakeSshBackend`, quindi non serve un cluster Proxmox reale.
+
+```bash
+uv run pytest        # unitari; il marker integration e escluso da addopts
+uv run pytest --cov  # con la soglia di copertura di [tool.coverage.report]
+```
 
 ```python
 from proxmox_sdk import (
