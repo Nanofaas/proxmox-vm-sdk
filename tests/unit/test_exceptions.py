@@ -1,4 +1,4 @@
-"""Tests for proxmox_sdk.exceptions.
+"""Tests for proxmox_vm_sdk.exceptions.
 
 Each exception records the arguments describing the failure as attributes and
 formats a human-readable message from them, so callers can both react
@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import pytest
 
-import proxmox_sdk
-from proxmox_sdk.exceptions import (
+import proxmox_vm_sdk
+from proxmox_vm_sdk.exceptions import (
     NodeNotFoundError,
     ProxmoxAPIError,
     ProxmoxAuthError,
@@ -57,7 +57,7 @@ def test_error_classes_are_distinct() -> None:
 
 @pytest.mark.parametrize("exc_class", ALL_ERROR_CLASSES)
 def test_errors_are_exported_from_package_root(exc_class: type[Exception]) -> None:
-    assert getattr(proxmox_sdk, exc_class.__name__) is exc_class
+    assert getattr(proxmox_vm_sdk, exc_class.__name__) is exc_class
 
 
 def test_base_class_catches_every_subclass() -> None:

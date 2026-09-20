@@ -1,6 +1,6 @@
 """Tests for the ``proxmox-eval`` static source checker.
 
-``_check_ast`` reads a ``src/proxmox_sdk`` tree relative to the current working
+``_check_ast`` reads a ``src/proxmox_vm_sdk`` tree relative to the current working
 directory, so every test that drives it builds a throwaway package tree and
 chdirs into it.
 """
@@ -13,14 +13,14 @@ from pathlib import Path
 
 import pytest
 
-from proxmox_sdk.devtools.code_eval import Smell, _check_ast, format_report, main
+from proxmox_vm_sdk.devtools.code_eval import Smell, _check_ast, format_report, main
 
 BARE_EXCEPT_MSG = "Bare except: — catches KeyboardInterrupt and SystemExit"
 
 
 def _write_tree(tmp_path: Path, files: dict[str, str]) -> None:
-    """Create ``files`` (relative paths -> source) under ``src/proxmox_sdk``."""
-    root = tmp_path / "src" / "proxmox_sdk"
+    """Create ``files`` (relative paths -> source) under ``src/proxmox_vm_sdk``."""
+    root = tmp_path / "src" / "proxmox_vm_sdk"
     for rel, source in files.items():
         path = root / rel
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -49,7 +49,7 @@ def test_check_ast_flags_bare_except(
         Smell(
             category="bug",
             severity="high",
-            file="src/proxmox_sdk/mod.py",
+            file="src/proxmox_vm_sdk/mod.py",
             line=4,
             message=BARE_EXCEPT_MSG,
         )
@@ -132,7 +132,7 @@ def test_check_ast_flags_broad_except(
         Smell(
             category="bug",
             severity="medium",
-            file="src/proxmox_sdk/mod.py",
+            file="src/proxmox_vm_sdk/mod.py",
             line=4,
             message=f"Broad except clause catches {caught}",
         )
@@ -174,7 +174,7 @@ def test_check_ast_flags_list_default_positional(
         Smell(
             category="bug",
             severity="high",
-            file="src/proxmox_sdk/mod.py",
+            file="src/proxmox_vm_sdk/mod.py",
             line=1,
             message="Mutable default argument in `f()`",
         )
@@ -226,7 +226,7 @@ def test_check_ast_flags_function_over_30_lines(
         Smell(
             category="simplification",
             severity="medium",
-            file="src/proxmox_sdk/mod.py",
+            file="src/proxmox_vm_sdk/mod.py",
             line=1,
             message="Function `long_one()` is 32 lines (max: 30)",
         )
@@ -253,7 +253,7 @@ def test_check_ast_flags_long_async_function(
         Smell(
             category="simplification",
             severity="medium",
-            file="src/proxmox_sdk/mod.py",
+            file="src/proxmox_vm_sdk/mod.py",
             line=1,
             message="Function `long_async()` is 32 lines (max: 30)",
         )
@@ -279,7 +279,7 @@ def test_check_ast_skips_devtools_scripts_but_keeps_init(
 
     smells = _check_ast()
 
-    assert [s.file for s in smells] == ["src/proxmox_sdk/devtools/__init__.py"]
+    assert [s.file for s in smells] == ["src/proxmox_vm_sdk/devtools/__init__.py"]
 
 
 def test_check_ast_walks_nested_packages_sorted(
@@ -295,15 +295,15 @@ def test_check_ast_walks_nested_packages_sorted(
     monkeypatch.chdir(tmp_path)
 
     assert [s.file for s in _check_ast()] == [
-        "src/proxmox_sdk/a.py",
-        "src/proxmox_sdk/sub/b.py",
+        "src/proxmox_vm_sdk/a.py",
+        "src/proxmox_vm_sdk/sub/b.py",
     ]
 
 
 def test_check_ast_returns_empty_for_no_python_files(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    (tmp_path / "src" / "proxmox_sdk").mkdir(parents=True)
+    (tmp_path / "src" / "proxmox_vm_sdk").mkdir(parents=True)
     monkeypatch.chdir(tmp_path)
 
     assert _check_ast() == []
@@ -405,7 +405,7 @@ def test_main_prints_text_report(
     assert capsys.readouterr().out == (
         "1. Possible Bugs\n"
         "----------------\n"
-        f"  [HIGH] src/proxmox_sdk/mod.py:4 — {BARE_EXCEPT_MSG}\n"
+        f"  [HIGH] src/proxmox_vm_sdk/mod.py:4 — {BARE_EXCEPT_MSG}\n"
         "\n"
         "2. Simplification Opportunities\n"
         "-------------------------------\n"
@@ -419,7 +419,7 @@ def test_main_prints_no_issues_message_when_tree_clean(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    (tmp_path / "src" / "proxmox_sdk").mkdir(parents=True)
+    (tmp_path / "src" / "proxmox_vm_sdk").mkdir(parents=True)
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(sys, "argv", ["proxmox-eval"])
 
@@ -443,7 +443,7 @@ def test_main_json_flag_emits_findings_as_json(
         {
             "category": "bug",
             "severity": "high",
-            "file": "src/proxmox_sdk/mod.py",
+            "file": "src/proxmox_vm_sdk/mod.py",
             "line": 4,
             "message": BARE_EXCEPT_MSG,
         }
@@ -455,7 +455,7 @@ def test_main_json_flag_prints_empty_array_when_clean(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    (tmp_path / "src" / "proxmox_sdk").mkdir(parents=True)
+    (tmp_path / "src" / "proxmox_vm_sdk").mkdir(parents=True)
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(sys, "argv", ["proxmox-eval", "--json"])
 

@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from proxmox_sdk.e2e import _load_ssh_pubkey, _ssh_exec
+from proxmox_vm_sdk.e2e import _load_ssh_pubkey, _ssh_exec
 
 # ---------------------------------------------------------------------------
 # _load_ssh_pubkey

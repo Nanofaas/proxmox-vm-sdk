@@ -1,6 +1,6 @@
 import pytest
 
-from proxmox_sdk import FakeBackend, ProxmoxClient
+from proxmox_vm_sdk import FakeBackend, ProxmoxClient
 
 
 @pytest.fixture

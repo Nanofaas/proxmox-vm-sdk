@@ -1,9 +1,9 @@
-"""Behavioural tests for the in-memory test doubles in proxmox_sdk.testing."""
+"""Behavioural tests for the in-memory test doubles in proxmox_vm_sdk.testing."""
 
 import pytest
 
-from proxmox_sdk import VmNotFoundError
-from proxmox_sdk.testing import FakeBackend, FakeSshBackend
+from proxmox_vm_sdk import VmNotFoundError
+from proxmox_vm_sdk.testing import FakeBackend, FakeSshBackend
 
 # ---------------------------------------------------------------------------
 # FakeBackend seeding helpers

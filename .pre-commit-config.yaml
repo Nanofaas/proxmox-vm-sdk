@@ -1,4 +1,4 @@
-# Pre-commit hooks for proxmox-sdk.
+# Pre-commit hooks for proxmox-vm-sdk.
 #
 #   uv run pre-commit install          # enable on commit
 #   uv run pre-commit run --all-files  # run everything once
@@ -31,7 +31,7 @@ repos:
   # Type checking
   #
   # Runs through the project environment rather than a pre-commit mirror:
-  # basedpyright has to resolve `proxmox_sdk` itself, and [tool.basedpyright]
+  # basedpyright has to resolve `proxmox_vm_sdk` itself, and [tool.basedpyright]
   # carries the include list and venv settings that make the pass meaningful.
   # ---------------------------------------------------------------------------
   - repo: local

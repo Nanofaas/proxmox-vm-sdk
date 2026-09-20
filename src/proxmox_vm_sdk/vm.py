@@ -13,9 +13,9 @@ import contextlib
 import time
 from typing import TYPE_CHECKING, Any
 
-from proxmox_sdk._backend import CommandResult
-from proxmox_sdk.exceptions import ProxmoxTimeoutError, SnapshotNotFoundError
-from proxmox_sdk.models import (
+from proxmox_vm_sdk._backend import CommandResult
+from proxmox_vm_sdk.exceptions import ProxmoxTimeoutError, SnapshotNotFoundError
+from proxmox_vm_sdk.models import (
     CloudInitConfig,
     SnapshotInfo,
     VmInfo,
@@ -23,7 +23,7 @@ from proxmox_sdk.models import (
 )
 
 if TYPE_CHECKING:
-    from proxmox_sdk._backend import ProxmoxBackend
+    from proxmox_vm_sdk._backend import ProxmoxBackend
 
 
 class ProxmoxVM:
@@ -183,7 +183,7 @@ class ProxmoxVM:
 
     def exec(self, command: list[str], *, timeout: float = 30.0) -> CommandResult:
         """Run a command inside the VM via QEMU guest agent."""
-        from proxmox_sdk.exceptions import ProxmoxAPIError
+        from proxmox_vm_sdk.exceptions import ProxmoxAPIError
 
         result = self._backend.post(
             f"nodes/{self.node}/qemu/{self.vm_id}/agent/exec",

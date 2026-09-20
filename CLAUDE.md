@@ -8,7 +8,7 @@ A Pythonic SDK for managing Proxmox VE virtual machines: a higher-level API over
 the official REST API, plus SSH-based NAT rule management on the Proxmox host.
 It ships real backends, an in-memory fake for tests, cloud-init support,
 snapshots and guest-agent exec. It is consumed by `nanolab` and `sonata-tasks`
-via a git-pinned dependency, so the public API in `proxmox_sdk.__all__` is a
+via a git-pinned dependency, so the public API in `proxmox_vm_sdk.__all__` is a
 contract with those projects.
 
 ## Setup
@@ -50,7 +50,7 @@ either fails.
 
 ## Architecture
 
-`src/proxmox_sdk/` contains the package:
+`src/proxmox_vm_sdk/` contains the package:
 
 - `_backend.py` — the `ProxmoxBackend` protocol plus its two real
   implementations: `ProxmoxerBackend` (REST via `proxmoxer`) and

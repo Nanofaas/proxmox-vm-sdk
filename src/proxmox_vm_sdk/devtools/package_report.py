@@ -1,4 +1,4 @@
-"""Import-graph metrics report for proxmox_sdk.
+"""Import-graph metrics report for proxmox_vm_sdk.
 
 Builds the module dependency graph with grimp and prints, for every module in
 the package, how many imports it makes and receives plus Martin's instability
@@ -15,11 +15,11 @@ from dataclasses import dataclass
 
 import grimp
 
-ROOT_PACKAGE = "proxmox_sdk"
+ROOT_PACKAGE = "proxmox_vm_sdk"
 EXCLUDED_MODULES = frozenset(
     {
-        "proxmox_sdk.devtools.package_report",
-        "proxmox_sdk.devtools.quality",
+        "proxmox_vm_sdk.devtools.package_report",
+        "proxmox_vm_sdk.devtools.quality",
     }
 )
 
@@ -28,7 +28,7 @@ EXCLUDED_MODULES = frozenset(
 class ModuleMetrics:
     """Import counts and instability for a single module.
 
-    `module` is the dotted name with the `proxmox_sdk.` prefix stripped.
+    `module` is the dotted name with the `proxmox_vm_sdk.` prefix stripped.
     `internal_imports` counts self-imports and `external_imports` edges leaving
     the package; `instability` is 0.0 for a module with no coupling either way.
     """
@@ -118,7 +118,7 @@ def main() -> None:
     `--orphans` the modules with no dependencies in either direction.
     """
     parser = argparse.ArgumentParser(
-        description="Report import graph metrics for proxmox_sdk."
+        description="Report import graph metrics for proxmox_vm_sdk."
     )
     parser.add_argument("--edges", action="store_true")
     parser.add_argument("--orphans", action="store_true")

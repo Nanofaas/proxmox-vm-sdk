@@ -1,18 +1,18 @@
-"""proxmox-sdk: Pythonic SDK for Proxmox VE VM management.
+"""proxmox-vm-sdk: Pythonic SDK for Proxmox VE VM management.
 
 Mirrors the multipass-sdk API design:
-  https://github.com/miciav/multipass-sdk
+  https://github.com/Nanofaas/multipass-vm-sdk
 """
 
-from proxmox_sdk._backend import (
+from proxmox_vm_sdk._backend import (
     CommandResult,
     ParamikoSshBackend,
     ProxmoxBackend,
     ProxmoxerBackend,
     SshBackend,
 )
-from proxmox_sdk.client import ProxmoxClient
-from proxmox_sdk.exceptions import (
+from proxmox_vm_sdk.client import ProxmoxClient
+from proxmox_vm_sdk.exceptions import (
     NodeNotFoundError,
     ProxmoxAPIError,
     ProxmoxAuthError,
@@ -24,7 +24,7 @@ from proxmox_sdk.exceptions import (
     VmNotFoundError,
     VmStateError,
 )
-from proxmox_sdk.models import (
+from proxmox_vm_sdk.models import (
     CloudInitConfig,
     NodeInfo,
     SnapshotInfo,
@@ -35,9 +35,9 @@ from proxmox_sdk.models import (
     VmMetrics,
     VmState,
 )
-from proxmox_sdk.routing import PortMapping, ProxmoxRoutingManager
-from proxmox_sdk.testing import FakeBackend, FakeSshBackend
-from proxmox_sdk.vm import ProxmoxVM
+from proxmox_vm_sdk.routing import PortMapping, ProxmoxRoutingManager
+from proxmox_vm_sdk.testing import FakeBackend, FakeSshBackend
+from proxmox_vm_sdk.vm import ProxmoxVM
 
 # Grouped by kind rather than sorted alphabetically: the exception entries are
 # in hierarchy order (base first), and losing that to satisfy RUF022 would trade
