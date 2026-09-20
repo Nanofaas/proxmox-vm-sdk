@@ -393,7 +393,7 @@ class FakeBackend:
 
     def _require_vm(self, vmid: int) -> None:
         if vmid not in self._vms:
-            from proxmox_sdk.exceptions import VmNotFoundError
+            from proxmox_vm_sdk.exceptions import VmNotFoundError
 
             raise VmNotFoundError(vmid)
 

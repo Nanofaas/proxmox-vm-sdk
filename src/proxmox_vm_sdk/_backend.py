@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 from typing import Any, Protocol, runtime_checkable
 
-from proxmox_sdk.exceptions import (
+from proxmox_vm_sdk.exceptions import (
     ProxmoxAPIError,
     ProxmoxTimeoutError,
     TaskFailedError,
@@ -125,7 +125,7 @@ class ProxmoxerBackend:
 
     @staticmethod
     def _translate_exception(exc: Exception, path: str) -> None:
-        """Re-raise proxmoxer exceptions as proxmox-sdk exceptions."""
+        """Re-raise proxmoxer exceptions as proxmox-vm-sdk exceptions."""
         # proxmoxer raises ResourceException; we check by name to avoid
         # importing proxmoxer in the exception module
         exc_type = type(exc).__name__
@@ -195,7 +195,7 @@ class ParamikoSshBackend:
 
     def write_file(self, path: str, content: str) -> None:
         # Write atomically via a tmp file
-        tmp = f"{path}.proxmox_sdk_tmp"
+        tmp = f"{path}.proxmox_vm_sdk_tmp"
         sftp = self._client.open_sftp()
         with sftp.file(tmp, "w") as f:
             f.write(content)

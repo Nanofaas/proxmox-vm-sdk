@@ -1,12 +1,25 @@
 [project]
-name = "proxmox-sdk"
-version = "0.2.0"
+name = "proxmox-vm-sdk"
+version = "0.6.0"
 description = "Pythonic SDK for Proxmox VE VM management"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [
     { name = "miciav", email = "5889596+miciav@users.noreply.github.com" }
+]
+keywords = ["proxmox", "proxmox-ve", "vm", "virtualization", "devops"]
+# The three Python versions are the ones CI's matrix actually runs, not a wish.
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: System :: Systems Administration",
 ]
 requires-python = ">=3.11"
 dependencies = [
@@ -16,10 +29,16 @@ dependencies = [
 ]
 
 [project.scripts]
-proxmox-quality = "proxmox_sdk.devtools.quality:main"
-proxmox-package-report = "proxmox_sdk.devtools.package_report:main"
-proxmox-eval = "proxmox_sdk.devtools.code_eval:main"
-proxmox-vm-e2e = "proxmox_sdk.e2e:main"
+proxmox-quality = "proxmox_vm_sdk.devtools.quality:main"
+proxmox-package-report = "proxmox_vm_sdk.devtools.package_report:main"
+proxmox-eval = "proxmox_vm_sdk.devtools.code_eval:main"
+proxmox-vm-e2e = "proxmox_vm_sdk.e2e:main"
+
+# PyPI shows a package page with no link home at all without these.
+[project.urls]
+Homepage = "https://github.com/Nanofaas/proxmox-vm-sdk"
+Repository = "https://github.com/Nanofaas/proxmox-vm-sdk"
+Issues = "https://github.com/Nanofaas/proxmox-vm-sdk/issues"
 
 [build-system]
 # >=1.27 is required for the PEP 639 `license` / `license-files` fields above;
@@ -28,7 +47,7 @@ requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/proxmox_sdk"]
+packages = ["src/proxmox_vm_sdk"]
 
 # =============================================================================
 # Development toolchain
@@ -113,10 +132,10 @@ ignore = [
 # ERA001 reads `nodes/{node}/qemu` as a commented-out expression and flags all
 # 14 of them. They are documentation, not dead code, and rewriting them into
 # prose would lose the mapping to the real API.
-"src/proxmox_sdk/testing.py" = ["ERA001"]
+"src/proxmox_vm_sdk/testing.py" = ["ERA001"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["proxmox_sdk"]
+known-first-party = ["proxmox_vm_sdk"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -129,14 +148,14 @@ line-ending = "lf"
 # The shared type checker across these projects; mypy is no longer used anywhere.
 #
 # reportImplicitOverride is left off because typing.override requires 3.12 and
-# this package supports 3.11 (see the same note in shellcraft and multipass-sdk).
+# this package supports 3.11 (see the same note in shellcraft and multipass-vm-sdk).
 #
 # reportMissingTypeStubs is off for third-party packages only: paramiko and
 # proxmoxer ship no stubs and none are published for them. Our own code is held
 # to the standard rule set regardless.
 
 [tool.basedpyright]
-include = ["src/proxmox_sdk"]
+include = ["src/proxmox_vm_sdk"]
 typeCheckingMode = "standard"
 reportMissingTypeStubs = false
 reportPrivateUsage = false
@@ -168,8 +187,8 @@ source = ["src"]
 # e2e.py is the `proxmox-vm-e2e` entry point: a CLI harness whose every path
 # drives a real Proxmox server, so it is exercised by the integration suite
 # rather than by unit tests. Counting it would report 14% for a file that is
-# covered the only way it can be. Same treatment as multipass-sdk's e2e.py.
-omit = ["src/proxmox_sdk/e2e.py"]
+# covered the only way it can be. Same treatment as multipass-vm-sdk's e2e.py.
+omit = ["src/proxmox_vm_sdk/e2e.py"]
 
 [tool.coverage.report]
 show_missing = true

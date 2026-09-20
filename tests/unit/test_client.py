@@ -3,7 +3,7 @@ import time
 
 import pytest
 
-from proxmox_sdk import (
+from proxmox_vm_sdk import (
     FakeBackend,
     ProxmoxClient,
     ProxmoxerBackend,
@@ -12,8 +12,8 @@ from proxmox_sdk import (
     VmInfo,
     VmNotFoundError,
 )
-from proxmox_sdk.exceptions import ProxmoxError
-from proxmox_sdk.models import CloudInitConfig, VmState
+from proxmox_vm_sdk.exceptions import ProxmoxError
+from proxmox_vm_sdk.models import CloudInitConfig, VmState
 
 
 def test_list_returns_all_vms(client: ProxmoxClient) -> None:
@@ -28,7 +28,7 @@ def test_list_node_filter(client: ProxmoxClient) -> None:
 
 
 def test_get_vm_returns_proxmox_vm(client: ProxmoxClient) -> None:
-    from proxmox_sdk import ProxmoxVM
+    from proxmox_vm_sdk import ProxmoxVM
 
     vm = client.get_vm(100)
     assert vm.vm_id == 100
@@ -54,7 +54,7 @@ def test_find_vm_not_found(client: ProxmoxClient) -> None:
 
 
 def test_list_nodes(client: ProxmoxClient) -> None:
-    from proxmox_sdk import NodeInfo
+    from proxmox_vm_sdk import NodeInfo
 
     nodes = client.list_nodes()
     assert len(nodes) == 1
@@ -133,7 +133,7 @@ def test_create_vm_no_start(client: ProxmoxClient, fake_backend: FakeBackend) ->
 
 
 def test_from_url_parses_host_and_port() -> None:
-    from proxmox_sdk._utils import parse_proxmox_url
+    from proxmox_vm_sdk._utils import parse_proxmox_url
 
     host, port = parse_proxmox_url("https://192.168.1.5:8006/api2/json")
     assert host == "192.168.1.5"

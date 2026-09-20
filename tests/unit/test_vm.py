@@ -3,7 +3,7 @@ from typing import Any
 
 import pytest
 
-from proxmox_sdk import (
+from proxmox_vm_sdk import (
     CloudInitConfig,
     CommandResult,
     FakeBackend,
@@ -14,11 +14,11 @@ from proxmox_sdk import (
     SnapshotNotFoundError,
     VmNotFoundError,
 )
-from proxmox_sdk.models import VmState
+from proxmox_vm_sdk.models import VmState
 
 
 def test_info_returns_vm_info(client: ProxmoxClient) -> None:
-    from proxmox_sdk import VmInfo
+    from proxmox_vm_sdk import VmInfo
 
     vm = client.get_vm(100)
     info = vm.info()
@@ -107,7 +107,7 @@ def test_wait_for_ip_raises_timeout(
 def test_metrics_returns_vm_metrics(
     client: ProxmoxClient, fake_backend: FakeBackend
 ) -> None:
-    from proxmox_sdk import VmMetrics
+    from proxmox_vm_sdk import VmMetrics
 
     vm = client.get_vm(101)
     m = vm.metrics()

@@ -9,7 +9,7 @@ import uuid
 
 import pytest
 
-from proxmox_sdk import ProxmoxClient
+from proxmox_vm_sdk import ProxmoxClient
 
 pytestmark = pytest.mark.integration
 

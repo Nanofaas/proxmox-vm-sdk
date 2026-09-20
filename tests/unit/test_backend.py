@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import paramiko
 import pytest
 
-from proxmox_sdk import (
+from proxmox_vm_sdk import (
     CommandResult,
     FakeBackend,
     FakeSshBackend,
@@ -275,12 +275,12 @@ def test_proxmoxer_non_proxmoxer_exception_propagates_unchanged() -> None:
 
 def _fake_clock(monkeypatch: pytest.MonkeyPatch) -> dict[str, float]:
     clock = {"now": 0.0}
-    monkeypatch.setattr("proxmox_sdk._backend.time.monotonic", lambda: clock["now"])
+    monkeypatch.setattr("proxmox_vm_sdk._backend.time.monotonic", lambda: clock["now"])
 
     def advance(seconds: float) -> None:
         clock["now"] += seconds
 
-    monkeypatch.setattr("proxmox_sdk._backend.time.sleep", advance)
+    monkeypatch.setattr("proxmox_vm_sdk._backend.time.sleep", advance)
     return clock
 
 
@@ -397,11 +397,11 @@ def test_paramiko_backend_write_file_stages_then_moves() -> None:
         client.exec_command.return_value = (None, stdout, stderr)
         backend = ParamikoSshBackend("host", "root")
         backend.write_file("/etc/pve/x.cfg", "body")
-    sftp.file.assert_called_once_with("/etc/pve/x.cfg.proxmox_sdk_tmp", "w")
+    sftp.file.assert_called_once_with("/etc/pve/x.cfg.proxmox_vm_sdk_tmp", "w")
     handle.write.assert_called_once_with("body")
     sftp.close.assert_called_once()
     client.exec_command.assert_called_once_with(
-        "mv /etc/pve/x.cfg.proxmox_sdk_tmp /etc/pve/x.cfg"
+        "mv /etc/pve/x.cfg.proxmox_vm_sdk_tmp /etc/pve/x.cfg"
     )
 
 

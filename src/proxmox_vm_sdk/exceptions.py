@@ -1,4 +1,4 @@
-"""Exceptions raised by proxmox-sdk.
+"""Exceptions raised by proxmox-vm-sdk.
 
 Every error derives from `ProxmoxError`, so a caller can catch the base class
 for a blanket handler or one of the subclasses below to react to a specific
@@ -10,7 +10,7 @@ from __future__ import annotations
 
 
 class ProxmoxError(Exception):
-    """Base class for all proxmox-sdk errors."""
+    """Base class for all proxmox-vm-sdk errors."""
 
 
 class ProxmoxAuthError(ProxmoxError):

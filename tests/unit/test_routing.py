@@ -9,9 +9,9 @@ from unittest.mock import MagicMock, patch
 import paramiko
 import pytest
 
-from proxmox_sdk._backend import ParamikoSshBackend
-from proxmox_sdk.routing import PortMapping, ProxmoxRoutingManager
-from proxmox_sdk.testing import FakeSshBackend
+from proxmox_vm_sdk._backend import ParamikoSshBackend
+from proxmox_vm_sdk.routing import PortMapping, ProxmoxRoutingManager
+from proxmox_vm_sdk.testing import FakeSshBackend
 
 # ---------------------------------------------------------------------------
 # Fixtures

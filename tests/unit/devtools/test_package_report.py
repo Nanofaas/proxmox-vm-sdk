@@ -13,8 +13,8 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
-from proxmox_sdk.devtools import package_report
-from proxmox_sdk.devtools.package_report import (
+from proxmox_vm_sdk.devtools import package_report
+from proxmox_vm_sdk.devtools.package_report import (
     ROOT_PACKAGE,
     ModuleMetrics,
     calculate_metrics,
@@ -45,8 +45,8 @@ class FakeGraph:
 
 def test_calculate_metrics_ignores_edges_from_modules_outside_the_graph() -> None:
     metrics = calculate_metrics(
-        modules=["proxmox_sdk.a"],
-        edges=[("proxmox_sdk.unknown", "proxmox_sdk.a")],
+        modules=["proxmox_vm_sdk.a"],
+        edges=[("proxmox_vm_sdk.unknown", "proxmox_vm_sdk.a")],
     )
     assert len(metrics) == 1
     assert metrics[0] == ModuleMetrics(
@@ -61,8 +61,8 @@ def test_calculate_metrics_ignores_edges_from_modules_outside_the_graph() -> Non
 
 def test_calculate_metrics_counts_imports_leaving_the_package_as_external() -> None:
     metrics = calculate_metrics(
-        modules=["proxmox_sdk.a"],
-        edges=[("proxmox_sdk.a", "requests")],
+        modules=["proxmox_vm_sdk.a"],
+        edges=[("proxmox_vm_sdk.a", "requests")],
     )
     assert metrics[0].external_imports == 1
     assert metrics[0].outgoing_imports == 0
@@ -71,8 +71,8 @@ def test_calculate_metrics_counts_imports_leaving_the_package_as_external() -> N
 
 def test_calculate_metrics_counts_a_self_import_as_internal() -> None:
     metrics = calculate_metrics(
-        modules=["proxmox_sdk.a"],
-        edges=[("proxmox_sdk.a", "proxmox_sdk.a")],
+        modules=["proxmox_vm_sdk.a"],
+        edges=[("proxmox_vm_sdk.a", "proxmox_vm_sdk.a")],
     )
     assert metrics[0].internal_imports == 1
     assert metrics[0].outgoing_imports == 0
@@ -81,8 +81,8 @@ def test_calculate_metrics_counts_a_self_import_as_internal() -> None:
 
 def test_calculate_metrics_records_both_sides_of_an_edge() -> None:
     metrics = calculate_metrics(
-        modules=["proxmox_sdk.a", "proxmox_sdk.b"],
-        edges=[("proxmox_sdk.a", "proxmox_sdk.b")],
+        modules=["proxmox_vm_sdk.a", "proxmox_vm_sdk.b"],
+        edges=[("proxmox_vm_sdk.a", "proxmox_vm_sdk.b")],
     )
     a, b = metrics
     assert (a.outgoing_imports, a.incoming_imports, a.instability) == (1, 0, 1.0)
@@ -91,24 +91,29 @@ def test_calculate_metrics_records_both_sides_of_an_edge() -> None:
 
 def test_calculate_metrics_rounds_instability_to_two_decimals() -> None:
     metrics = calculate_metrics(
-        modules=["proxmox_sdk.a", "proxmox_sdk.b", "proxmox_sdk.c", "proxmox_sdk.d"],
+        modules=[
+            "proxmox_vm_sdk.a",
+            "proxmox_vm_sdk.b",
+            "proxmox_vm_sdk.c",
+            "proxmox_vm_sdk.d",
+        ],
         edges=[
-            ("proxmox_sdk.b", "proxmox_sdk.a"),
-            ("proxmox_sdk.c", "proxmox_sdk.a"),
-            ("proxmox_sdk.a", "proxmox_sdk.d"),
+            ("proxmox_vm_sdk.b", "proxmox_vm_sdk.a"),
+            ("proxmox_vm_sdk.c", "proxmox_vm_sdk.a"),
+            ("proxmox_vm_sdk.a", "proxmox_vm_sdk.d"),
         ],
     )
     assert metrics[0].instability == 0.33
 
 
 def test_calculate_metrics_returns_zero_instability_without_coupling() -> None:
-    metrics = calculate_metrics(modules=["proxmox_sdk.a"], edges=[])
+    metrics = calculate_metrics(modules=["proxmox_vm_sdk.a"], edges=[])
     assert metrics[0].instability == 0.0
 
 
 def test_calculate_metrics_strips_the_root_prefix_but_keeps_the_root_name() -> None:
     metrics = calculate_metrics(
-        modules=[ROOT_PACKAGE, "proxmox_sdk.dev.tooling"],
+        modules=[ROOT_PACKAGE, "proxmox_vm_sdk.dev.tooling"],
         edges=[],
     )
     assert [m.module for m in metrics] == [ROOT_PACKAGE, "dev.tooling"]
@@ -116,7 +121,7 @@ def test_calculate_metrics_strips_the_root_prefix_but_keeps_the_root_name() -> N
 
 def test_calculate_metrics_preserves_the_given_module_order() -> None:
     metrics = calculate_metrics(
-        modules=["proxmox_sdk.b", "proxmox_sdk.a"],
+        modules=["proxmox_vm_sdk.b", "proxmox_vm_sdk.a"],
         edges=[],
     )
     assert [m.module for m in metrics] == ["b", "a"]
@@ -180,20 +185,20 @@ def test_format_metrics_table_without_modules_is_header_and_rule_only() -> None:
 # ---------------------------------------------------------------------------
 
 WITH_EDGES = {
-    "proxmox_sdk": {"proxmox_sdk.core"},
-    "proxmox_sdk.core": {"proxmox_sdk.util"},
+    "proxmox_vm_sdk": {"proxmox_vm_sdk.core"},
+    "proxmox_vm_sdk.core": {"proxmox_vm_sdk.util"},
 }
 MODULES = {
-    "proxmox_sdk",
-    "proxmox_sdk.core",
-    "proxmox_sdk.util",
+    "proxmox_vm_sdk",
+    "proxmox_vm_sdk.core",
+    "proxmox_vm_sdk.util",
 }
 
 TABLE = (
     "module                         internal outgoing incoming external instability\n"
     + "-" * 78
     + "\n"
-    + "proxmox_sdk                           0        1        0        0        1.00\n"
+    + "proxmox_vm_sdk                        0        1        0        0        1.00\n"
     + "core                                  0        1        1        0        0.50\n"
     + "util                                  0        0        1        0        0.00"
 )
@@ -238,8 +243,8 @@ def test_main_excludes_the_devtools_modules_from_the_table(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     modules = MODULES | {
-        "proxmox_sdk.devtools.package_report",
-        "proxmox_sdk.devtools.quality",
+        "proxmox_vm_sdk.devtools.package_report",
+        "proxmox_vm_sdk.devtools.quality",
     }
     _install_graph(monkeypatch, FakeGraph(modules, WITH_EDGES))
     monkeypatch.setattr(sys, "argv", ["proxmox-package-report"])
@@ -262,16 +267,16 @@ def test_main_edges_flag_lists_dependency_edges(
 
     out = capsys.readouterr().out
     assert out == (
-        TABLE + "\n\n[Dependency edges]\n  proxmox_sdk -> core\n  core -> util\n"
+        TABLE + "\n\n[Dependency edges]\n  proxmox_vm_sdk -> core\n  core -> util\n"
     )
 
 
 def test_main_edges_flag_skips_edges_touching_excluded_modules(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    modules = MODULES | {"proxmox_sdk.devtools.package_report"}
+    modules = MODULES | {"proxmox_vm_sdk.devtools.package_report"}
     imports = dict(WITH_EDGES)
-    imports["proxmox_sdk.util"] = {"proxmox_sdk.devtools.package_report"}
+    imports["proxmox_vm_sdk.util"] = {"proxmox_vm_sdk.devtools.package_report"}
     _install_graph(monkeypatch, FakeGraph(modules, imports))
     monkeypatch.setattr(sys, "argv", ["proxmox-package-report", "--edges"])
 
@@ -285,7 +290,7 @@ def test_main_edges_flag_skips_edges_touching_excluded_modules(
 def test_main_orphans_flag_lists_modules_with_no_dependencies(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    modules = MODULES | {"proxmox_sdk.orphan"}
+    modules = MODULES | {"proxmox_vm_sdk.orphan"}
     _install_graph(monkeypatch, FakeGraph(modules, WITH_EDGES))
     monkeypatch.setattr(sys, "argv", ["proxmox-package-report", "--orphans"])
 
@@ -299,22 +304,22 @@ def test_main_orphans_flag_prints_the_root_package_unshortened(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     imports = dict(WITH_EDGES)
-    imports.pop("proxmox_sdk")
+    imports.pop("proxmox_vm_sdk")
     _install_graph(monkeypatch, FakeGraph(MODULES, imports))
     monkeypatch.setattr(sys, "argv", ["proxmox-package-report", "--orphans"])
 
     main()
 
     out = capsys.readouterr().out
-    assert out.endswith("\n[Orphan modules]\n  proxmox_sdk\n")
+    assert out.endswith("\n[Orphan modules]\n  proxmox_vm_sdk\n")
 
 
 def test_main_orphans_flag_ignores_edges_touching_excluded_modules(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    modules = MODULES | {"proxmox_sdk.devtools.package_report"}
+    modules = MODULES | {"proxmox_vm_sdk.devtools.package_report"}
     imports = dict(WITH_EDGES)
-    imports["proxmox_sdk.util"] = {"proxmox_sdk.devtools.package_report"}
+    imports["proxmox_vm_sdk.util"] = {"proxmox_vm_sdk.devtools.package_report"}
     _install_graph(monkeypatch, FakeGraph(modules, imports))
     monkeypatch.setattr(sys, "argv", ["proxmox-package-report", "--orphans"])
 

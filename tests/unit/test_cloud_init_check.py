@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import pytest
 
-from proxmox_sdk import FakeBackend, ProxmoxClient
-from proxmox_sdk.exceptions import ProxmoxError
-from proxmox_sdk.models import CloudInitConfig
-from proxmox_sdk.vm import ProxmoxVM
+from proxmox_vm_sdk import FakeBackend, ProxmoxClient
+from proxmox_vm_sdk.exceptions import ProxmoxError
+from proxmox_vm_sdk.models import CloudInitConfig
+from proxmox_vm_sdk.vm import ProxmoxVM
 
 
 def _backend_with_ci_drive() -> FakeBackend:

@@ -2,10 +2,10 @@
 
 import pytest
 
-from proxmox_sdk import ProxmoxClient
-from proxmox_sdk.models import CloudInitConfig
-from proxmox_sdk.testing import FakeBackend
-from proxmox_sdk.vm import ProxmoxVM
+from proxmox_vm_sdk import ProxmoxClient
+from proxmox_vm_sdk.models import CloudInitConfig
+from proxmox_vm_sdk.testing import FakeBackend
+from proxmox_vm_sdk.vm import ProxmoxVM
 
 
 @pytest.fixture
@@ -171,7 +171,7 @@ def test_create_vm_cloud_init_applied_before_start() -> None:
 
 
 def test_cloud_init_config_importable_from_top_level() -> None:
-    from proxmox_sdk import CloudInitConfig
+    from proxmox_vm_sdk import CloudInitConfig
 
     cfg = CloudInitConfig(username="ubuntu")
     assert cfg.username == "ubuntu"

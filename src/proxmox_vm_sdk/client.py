@@ -13,15 +13,21 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
-from proxmox_sdk._backend import ProxmoxBackend
-from proxmox_sdk._utils import parse_proxmox_url
-from proxmox_sdk.exceptions import ProxmoxError, VmNotFoundError
-from proxmox_sdk.models import CloudInitConfig, NodeInfo, TemplateInfo, VmConfig, VmInfo
-from proxmox_sdk.vm import ProxmoxVM
+from proxmox_vm_sdk._backend import ProxmoxBackend
+from proxmox_vm_sdk._utils import parse_proxmox_url
+from proxmox_vm_sdk.exceptions import ProxmoxError, VmNotFoundError
+from proxmox_vm_sdk.models import (
+    CloudInitConfig,
+    NodeInfo,
+    TemplateInfo,
+    VmConfig,
+    VmInfo,
+)
+from proxmox_vm_sdk.vm import ProxmoxVM
 
 
 class ProxmoxClient:
-    """Entry point for the proxmox-sdk.
+    """Entry point for the proxmox-vm-sdk.
 
     Usage::
 
@@ -32,7 +38,7 @@ class ProxmoxClient:
 
     For testing, inject a FakeBackend::
 
-        from proxmox_sdk.testing import FakeBackend
+        from proxmox_vm_sdk.testing import FakeBackend
         fake = FakeBackend()
         fake.add_vm(100, name="test-vm")
         client = ProxmoxClient(host="x", user="x", backend=fake)
@@ -392,7 +398,7 @@ class ProxmoxClient:
                 "proxmoxer is required for the real backend. "
                 "Install it with: pip install proxmoxer requests"
             ) from exc
-        from proxmox_sdk._backend import ProxmoxerBackend
+        from proxmox_vm_sdk._backend import ProxmoxerBackend
 
         if token_name and token_value:
             api = ProxmoxAPI(

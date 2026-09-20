@@ -2,7 +2,7 @@ import subprocess
 
 import pytest
 
-from proxmox_sdk.devtools import quality
+from proxmox_vm_sdk.devtools import quality
 
 
 def _completed(returncode: int) -> subprocess.CompletedProcess[list[str]]:

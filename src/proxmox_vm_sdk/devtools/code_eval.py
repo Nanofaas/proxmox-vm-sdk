@@ -1,6 +1,6 @@
 """Static source checks for bugs and simplification opportunities.
 
-Walks every module under `src/proxmox_sdk` with the `ast` module, skipping the
+Walks every module under `src/proxmox_vm_sdk` with the `ast` module, skipping the
 other `devtools` scripts, and reports bare `except:` clauses, handlers that
 catch `Exception` or `BaseException`, mutable default arguments, and functions
 longer than 30 lines. Backs the `proxmox-eval` console script.
@@ -13,7 +13,7 @@ import ast
 from dataclasses import dataclass
 from pathlib import Path
 
-ROOT_PACKAGE = "proxmox_sdk"
+ROOT_PACKAGE = "proxmox_vm_sdk"
 
 
 @dataclass

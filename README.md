@@ -1,13 +1,13 @@
-# proxmox-sdk
+# proxmox-vm-sdk
 
-[![CI](https://github.com/miciav/proxmox-sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/miciav/proxmox-sdk/actions/workflows/ci.yml)
+[![CI](https://github.com/Nanofaas/proxmox-vm-sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/Nanofaas/proxmox-vm-sdk/actions/workflows/ci.yml)
 
-`proxmox-sdk` e una libreria Python per gestire VM Proxmox VE con un'API piu alta livello sopra la REST API ufficiale. Include backend reali, fake in-memory per i test, supporto cloud-init, snapshot, guest agent e regole NAT via SSH.
+`proxmox-vm-sdk` e una libreria Python per gestire VM Proxmox VE con un'API piu alta livello sopra la REST API ufficiale. Include backend reali, fake in-memory per i test, supporto cloud-init, snapshot, guest agent e regole NAT via SSH.
 
 ## Installazione
 
 ```bash
-pip install proxmox-sdk
+pip install proxmox-vm-sdk
 ```
 
 Se lavori dal repository:
@@ -26,7 +26,7 @@ Per le operazioni SSH sul nodo Proxmox serve `paramiko`. Per l'uso reale della R
 ## Uso rapido
 
 ```python
-from proxmox_sdk import ProxmoxClient
+from proxmox_vm_sdk import ProxmoxClient
 
 client = ProxmoxClient(
     host="192.168.1.100",
@@ -46,7 +46,7 @@ vm.start()
 `ProxmoxClient` accetta password o token API. Puoi anche partire da un URL Proxmox completo.
 
 ```python
-from proxmox_sdk import ProxmoxClient
+from proxmox_vm_sdk import ProxmoxClient
 
 client = ProxmoxClient(
     host="192.168.1.100",
@@ -90,7 +90,7 @@ template = client.find_template("ubuntu-template")
 Il metodo principale e `launch()`. Accetta una stringa oppure un `VmConfig`.
 
 ```python
-from proxmox_sdk import CloudInitConfig, VmConfig
+from proxmox_vm_sdk import CloudInitConfig, VmConfig
 
 vm = client.launch(
     "node-1",
@@ -207,7 +207,7 @@ vm.wait_ready(timeout=120)
 `ProxmoxRoutingManager` gestisce regole DNAT su un host Proxmox via SSH. Le regole vengono scritte in `/etc/network/interfaces` e ricaricate con `ifreload --all`.
 
 ```python
-from proxmox_sdk import PortMapping, ProxmoxRoutingManager
+from proxmox_vm_sdk import PortMapping, ProxmoxRoutingManager
 
 mgr = ProxmoxRoutingManager.from_key(
     host="192.168.1.100",
@@ -283,7 +283,7 @@ uv run pytest --cov  # con la soglia di copertura di [tool.coverage.report]
 ```
 
 ```python
-from proxmox_sdk import (
+from proxmox_vm_sdk import (
     FakeBackend,
     FakeSshBackend,
     ProxmoxClient,

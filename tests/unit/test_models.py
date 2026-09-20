@@ -1,7 +1,7 @@
 import pytest
 
-from proxmox_sdk._backend import CommandResult
-from proxmox_sdk.models import (
+from proxmox_vm_sdk._backend import CommandResult
+from proxmox_vm_sdk.models import (
     CloudInitConfig,
     NodeInfo,
     SnapshotInfo,
